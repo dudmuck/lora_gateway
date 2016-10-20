@@ -1,3 +1,6 @@
 *.o
 *.swp
 *.bak
+build/
+*.a
+config.h
