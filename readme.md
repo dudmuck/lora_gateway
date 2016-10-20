@@ -1,3 +1,16 @@
+# HAL using [IPC:Shared Memory](http://users.cs.cf.ac.uk/Dave.Marshall/C/node27.html) (SHM) 
+Uses shared memory to simulate RF link between end node and gateway.
+Allows for observing beahvior the software or testing the software.
+
+## SHM build instructions
+1. from the lora_gateway directory:
+`mkdir build`
+`cd build`
+`cmake .. -DSHM=1`
+You will have libloragw.a generated in the same location as the packet_forwareder expects.
+The unmodified packet forwarder uses this HAL as if it were SX1301 HAL.
+2. checkout the [packet_forwarder](https://github.com/Lora-net/packet_forwarder) in the same directory that you put this lora_gateway.  The packet forwarder statically links with libloragw.a.
+
 	 / _____)             _              | |    
 	( (____  _____ ____ _| |_ _____  ____| |__  
 	 \____ \| ___ |    (_   _) ___ |/ ___)  _ \ 
