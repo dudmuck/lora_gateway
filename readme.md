@@ -3,13 +3,14 @@ Uses shared memory to simulate RF link between end node and gateway.
 Allows for observing beahvior the software or testing the software.  
 This is for use with [LoRaMac-node PC platform](https://github.com/dudmuck/LoRaMac-node/tree/master/pc), which implements matching SHM IPC.  
 ## SHM build instructions  
-1. from the lora_gateway directory:  
+1. from the `lora_gateway` directory:  
 `$ mkdir build`  
 `$ cd build`  
 `$ cmake .. -DSHM=1`  
+`$ make`
 You will have libloragw.a generated in the same location as the packet_forwarder expects.  
 The unmodified packet forwarder uses this HAL as if it were SX1301 HAL.
-2. checkout the [packet_forwarder](https://github.com/Lora-net/packet_forwarder) in the same directory that you put this lora_gateway.  The packet forwarder statically links with libloragw.a.
+2. checkout the [`packet_forwarder`](https://github.com/Lora-net/packet_forwarder) in the same directory that you put this lora_gateway.  The packet forwarder statically links with libloragw.a.
 
 	 / _____)             _              | |    
 	( (____  _____ ____ _| |_ _____  ____| |__  
