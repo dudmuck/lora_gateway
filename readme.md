@@ -7,7 +7,7 @@ This is for use with [LoRaMac-node PC platform](https://github.com/dudmuck/LoRaM
 1.`$ mkdir build`  
 2.`$ cd build`  
 3.`$ cmake .. -DSHM=1`  
-   If you do not give cmake -DSHM=1, you will build gateway HAL requiring SX1301 hardware.  
+   If you do not give -DSHM=1 to cmake, you will build gateway HAL requiring SX1301 hardware.  
 4.`$ make`  
 You will have libloragw.a generated in the same location as the packet_forwarder expects.  
 The unmodified packet forwarder uses this HAL as if it were SX1301 HAL.
