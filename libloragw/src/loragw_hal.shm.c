@@ -30,6 +30,8 @@ void thread_fakegps(void);  // from loragw_gps.shm.c
 extern bool gps_tx_trigger; // from loragw_gps.shm.c
 struct lgw_pkt_tx_s g_pkt_data;
 
+uint32_t count_us_overflows; // overflows every 2^32 microseconds
+
 #define MAX_IF_PER_RADIO       5
 typedef struct {
     uint32_t center_freq;
@@ -170,21 +172,22 @@ int lgw_start(void)
     if (!initialized_radio)
         radio_init();
 
-    shared_memory1_id = shmget((key_t)SHM_KEY, sizeof(struct lora_shm_struct), 0666 | IPC_CREAT);	
+    shared_memory1_id = shmget((key_t)SHM_KEY, sizeof(struct lora_shm_struct), 0666 | IPC_CREAT);
     if (shared_memory1_id < 0) {
         perror("shmget");
         return LGW_HAL_ERROR;
     }
 
-	shared_memory1_pointer = shmat(shared_memory1_id, (void *)0, 0);
-	if (shared_memory1_pointer < 0)
-	{
+    shared_memory1_pointer = shmat(shared_memory1_id, (void *)0, 0);
+    if (shared_memory1_pointer < 0)
+    {
         perror("shmat");
         return LGW_HAL_ERROR;
     }
 
     shared_memory1 = (struct lora_shm_struct *)shared_memory1_pointer;
 
+    count_us_overflows = 0;
     if (clock_gettime (CLOCK_MONOTONIC, &shared_memory1->gw_start_ts) == -1) {
         perror ("clock_gettime");
         return LGW_HAL_ERROR;
@@ -374,7 +377,7 @@ int lgw_txgain_setconf(struct lgw_tx_gain_lut_s *conf)
 /* return current sx1301 time */
 int lgw_get_trigcnt(uint32_t* trig_cnt_us)
 {
-	uint64_t ret64;
+    uint64_t ret64;
     struct timespec tp;
 
     if (clock_gettime (CLOCK_MONOTONIC, &tp) == -1) {
@@ -389,9 +392,9 @@ int lgw_get_trigcnt(uint32_t* trig_cnt_us)
         tp.tv_sec--;
     }
 
-	// convert to microseconds
-	ret64 = tp.tv_sec * 1e6;
-	ret64 += tp.tv_nsec / 1000;
+    // convert to microseconds
+    ret64 = tp.tv_sec * 1e6;
+    ret64 += tp.tv_nsec / 1000;
 
     //printf("%u = lgw_get_trigcnt()\n", (uint32_t)ret64);
     *trig_cnt_us = (uint32_t)ret64;
@@ -549,29 +552,41 @@ int lgw_send(struct lgw_pkt_tx_s pkt_data)
 {
     struct timespec now, ts;
     double seconds_to_tx;
+    uint64_t count_us;
 
     switch (pkt_data.tx_mode) {
         case TIMESTAMPED:
             if (gps_tx_trigger)
                 return LGW_HAL_ERROR;
-            // count_us is microseconds, convert to struct timespec
+            //count_us_overflows
 
             if (clock_gettime (CLOCK_MONOTONIC, &now) == -1)
                 perror ("clock_gettime");
             //print_now();
-            uint32_t us_part = pkt_data.count_us % 1000000;    // get microsecond part
-            ts.tv_nsec = us_part * 1000; // to nanoseconds
-            pkt_data.count_us -= us_part;
-            ts.tv_sec = pkt_data.count_us / 1000000;
+            do {
+                // count_us is microseconds, convert to struct timespec
+                uint64_t ovfl = count_us_overflows;
+                uint32_t us_part;
+                count_us = ovfl << 32;
+                count_us += pkt_data.count_us;
+                us_part = count_us % 1000000;    // get microsecond part
+                ts.tv_nsec = us_part * 1000; // to nanoseconds
+                count_us -= us_part;
+                ts.tv_sec = count_us / 1000000;
 
-            // restore using startup-offset
-            ts.tv_sec += shared_memory1->gw_start_ts.tv_sec;
-            ts.tv_nsec += shared_memory1->gw_start_ts.tv_nsec;
-            if (ts.tv_nsec > 1000000000) {
-                ts.tv_nsec -= 1000000000;
-                ts.tv_sec++;
-            }
-            seconds_to_tx = difftimespec(ts, now);
+                // restore using startup-offset
+                ts.tv_sec += shared_memory1->gw_start_ts.tv_sec;
+                ts.tv_nsec += shared_memory1->gw_start_ts.tv_nsec;
+                if (ts.tv_nsec > 1000000000) {
+                    ts.tv_nsec -= 1000000000;
+                    ts.tv_sec++;
+                }
+                seconds_to_tx = difftimespec(ts, now);
+                if (seconds_to_tx < 0) {
+                    count_us_overflows++;
+                    printf("count_us overflow %f, %u\n", seconds_to_tx, count_us_overflows);
+                }
+            } while (seconds_to_tx < 0);
             printf("TIMESTAMPED seconds_to_tx:%f\n", seconds_to_tx);
 
             shared_memory1->downlink.tx_preamble_start_time.tv_nsec = ts.tv_nsec;
