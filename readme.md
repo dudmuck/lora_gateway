@@ -1,7 +1,7 @@
 # HAL using [IPC:Shared Memory](http://users.cs.cf.ac.uk/Dave.Marshall/C/node27.html) (SHM) 
-Uses shared memory to simulate RF link between end node and gateway.
-Allows for observing beahvior the software or testing the software.
-
+Uses shared memory to simulate RF link between end node and gateway.  
+Allows for observing beahvior the software or testing the software.  
+This is for use with [LoRaMac-node PC platform](https://github.com/dudmuck/LoRaMac-node/tree/master/pc), which implements matching SHM IPC.  
 ## SHM build instructions  
 1. from the lora_gateway directory:  
 `$ mkdir build`  
