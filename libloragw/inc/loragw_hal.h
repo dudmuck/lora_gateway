@@ -60,7 +60,7 @@ Maintainer: Sylvain Miermont
 /* concentrator chipset-specific parameters */
 /* to use array parameters, declare a local const and use 'if_chain' as index */
 #define LGW_IF_CHAIN_NB     10    /* number of IF+modem RX chains */
-#define LGW_PKT_FIFO_SIZE   8    /* depth of the RX packet FIFO */
+#define LGW_PKT_FIFO_SIZE   16    /* depth of the RX packet FIFO */
 #define LGW_DATABUFF_SIZE   1024    /* size in bytes of the RX data buffer (contains payload & metadata) */
 #define LGW_REF_BW          125000    /* typical bandwidth of data channel */
 #define LGW_MULTI_NB        8    /* number of LoRa 'multi SF' chains */
@@ -175,8 +175,17 @@ enum lgw_radio_type_e {
 @brief Configuration structure for board specificities
 */
 struct lgw_conf_board_s {
-    bool        lorawan_public; /*!> Enable ONLY for *public* networks using the LoRa MAC protocol */
-    uint8_t     clksrc;         /*!> Index of RF chain which provides clock to concentrator */
+    bool    lorawan_public; /*!> Enable ONLY for *public* networks using the LoRa MAC protocol */
+    uint8_t clksrc;         /*!> Index of RF chain which provides clock to concentrator */
+};
+
+/**
+@struct lgw_conf_lbt_chan_s
+@brief Configuration structure for LBT channels
+*/
+struct lgw_conf_lbt_chan_s {
+    uint32_t freq_hz;
+    uint16_t scan_time_us;
 };
 
 /**
