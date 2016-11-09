@@ -35,6 +35,8 @@ typedef struct {
 
     bool transmitting;
     struct timespec tx_done_time;
+    uint32_t tx_cnt;
+    int8_t tx_dBm;
 } downlink_t;
 
 struct lora_shm_struct {

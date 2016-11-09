@@ -12,8 +12,26 @@
 #include <unistd.h>
 #include <math.h>
 
+/* -------------------------------------------------------------------------- */
+/* --- PRIVATE MACROS ------------------------------------------------------- */
+
+#define ARRAY_SIZE(a) (sizeof(a) / sizeof((a)[0]))
+#if DEBUG_HAL == 1
+    #define DEBUG_MSG(str)                fprintf(stderr, str)
+    #define DEBUG_PRINTF(fmt, args...)    fprintf(stderr,"%s:%d: "fmt, __FUNCTION__, __LINE__, args)
+    #define DEBUG_ARRAY(a,b,c)            for(a=0;a<b;++a) fprintf(stderr,"%x.",c[a]);fprintf(stderr,"end\n")
+    #define CHECK_NULL(a)                 if(a==NULL){fprintf(stderr,"%s:%d: ERROR: NULL POINTER AS ARGUMENT\n", __FUNCTION__, __LINE__);return LGW_HAL_ERROR;}
+#else
+    #define DEBUG_MSG(str)
+    #define DEBUG_PRINTF(fmt, args...)
+    #define DEBUG_ARRAY(a,b,c)            for(a=0;a!=0;){}
+    #define CHECK_NULL(a)                 if(a==NULL){return LGW_HAL_ERROR;}
+#endif
+
 #define MIN_LORA_PREAMBLE   4
 #define STD_LORA_PREAMBLE   6
+
+
 
 const char lgw_version_string[] = "Version: " LIBLORAGW_VERSION ";";
 
@@ -55,7 +73,7 @@ void thread_send(void)
     struct timespec now, dly, rem;
 
     while (hal_run) {
-        if (clock_gettime (CLOCK_MONOTONIC, &now) == -1)
+        if (clock_gettime (CLOCK_REALTIME, &now) == -1)
             perror ("clock_gettime");
 
         dly.tv_sec = now.tv_sec;
@@ -67,7 +85,7 @@ void thread_send(void)
         //printf("(%d) cnt:%d\n", sizeof(now.tv_nsec), cnt++);
         //printf("dly.tv_nsec:%lu\n", dly.tv_nsec);
 
-        ret = clock_nanosleep(CLOCK_MONOTONIC, TIMER_ABSTIME, &dly, &rem);
+        ret = clock_nanosleep(CLOCK_REALTIME, TIMER_ABSTIME, &dly, &rem);
         if (ret == EFAULT) {
             hal_run = false;
             printf("EFAULT\n");
@@ -192,21 +210,22 @@ int lgw_start(void)
     shared_memory1 = (struct lora_shm_struct *)shared_memory1_pointer;
 
     count_us_overflows = 0;
-    if (clock_gettime (CLOCK_MONOTONIC, &shared_memory1->gw_start_ts) == -1) {
+    if (clock_gettime (CLOCK_REALTIME, &shared_memory1->gw_start_ts) == -1) {
         perror ("clock_gettime");
         return LGW_HAL_ERROR;
     }
-    printf("gw_start_ts: %lu, %lu\n",
+    printf("gw_start_ts: %lu.%lu\n",
         shared_memory1->gw_start_ts.tv_sec,
         shared_memory1->gw_start_ts.tv_nsec
     );
     /////////////////////////////////////////////////////////
     shared_memory1->size = sizeof(struct lora_shm_struct);
+    shared_memory1->downlink.tx_cnt = 0;
     /* clear any stale packets */
     for (ret = 0; ret < N_UPLINK_PACKETS; ret++)
         shared_memory1->uplink_packets[ret].has_packet = false;
 
-    if (clock_gettime (CLOCK_MONOTONIC, &shared_memory1->downlink.tx_done_time) == -1)
+    if (clock_gettime (CLOCK_REALTIME, &shared_memory1->downlink.tx_done_time) == -1)
         perror ("clock_gettime");
     /////////////////////////////////////////////////////////
     hal_run = true;
@@ -386,7 +405,7 @@ int lgw_get_trigcnt(uint32_t* trig_cnt_us)
     uint64_t ret64;
     struct timespec tp;
 
-    if (clock_gettime (CLOCK_MONOTONIC, &tp) == -1) {
+    if (clock_gettime (CLOCK_REALTIME, &tp) == -1) {
         perror ("clock_gettime");
         return LGW_HAL_ERROR;
     }
@@ -459,6 +478,9 @@ int32_t lgw_sf_getval(int x) {
     }
 }
 
+#define MSG_CYAN(...) printf("[46m" __VA_ARGS__ ); /* 46:bg-CYAN */ \
+                    printf("[0m") 
+
 
 uint32_t lgw_time_on_air_us(struct lgw_pkt_tx_s *packet)
 {
@@ -479,6 +501,7 @@ uint32_t lgw_time_on_air_us(struct lgw_pkt_tx_s *packet)
         //printf("%d = lgw_bw_getval()\n", val);
         if (val != -1) {
             BW = val / (float)1e6;
+            MSG_CYAN("BW:%f ", BW);
         } else {
             fprintf(stderr, "ERROR: Cannot compute time on air for this packet, unsupported bandwidth (0x%02X)\n", packet->bandwidth);
             return 0;
@@ -488,6 +511,7 @@ uint32_t lgw_time_on_air_us(struct lgw_pkt_tx_s *packet)
         val = lgw_sf_getval(packet->datarate);
         if (val != -1) {
             SF = (uint8_t)val;
+            MSG_CYAN("SF:%u ", SF);
         } else {
             fprintf(stderr, "ERROR: Cannot compute time on air for this packet, unsupported datarate (0x%02X)\n", packet->datarate);
             return 0;
@@ -498,15 +522,20 @@ uint32_t lgw_time_on_air_us(struct lgw_pkt_tx_s *packet)
         //printf("Tsym:%f = %f / %f\n", Tsym, pow(2, SF), BW);
 
         /* Duration of preamble */
-        Tpreamble = (8 + 4.25) * Tsym; /* 8 programmed symbols in preamble */
+        //Tpreamble = (8 + 4.25) * Tsym; /* 8 programmed symbols in preamble */
+        Tpreamble = (packet->preamble + 4.25) * Tsym; /* 8 programmed symbols in preamble */
 
         /* Duration of payload */
-        H = (packet->no_header==false) ? 0 : 1; /* header is always enabled, except for beacons */
+        //H = (packet->no_header==false) ? 0 : 1; /* header is always enabled, except for beacons */
+        H = packet->no_header ? 1 : 0; /* header is always enabled, except for beacons */
         DE = (SF >= 11) ? 1 : 0; /* Low datarate optimization enabled for SF11 and SF12 */
+        uint8_t crcOn = packet->no_crc ? 0: 1;
+        MSG_CYAN("Tsym:%f Tpreamble:%f(%usymbs) H:%d(%d) DE:%d crc:%u ", Tsym, Tpreamble, packet->preamble, H, packet->no_header, DE, crcOn);
 
-        payloadSymbNb = 8 + (ceil((double)(8*packet->size - 4*SF + 28 + 16 - 20*H) / (double)(4*(SF - 2*DE))) * (packet->coderate + 4)); /* Explicitely cast to double to keep precision of the division */
+        payloadSymbNb = 8 + (ceil((double)(8*packet->size - 4*SF + 28 + 16*crcOn - 20*H) / (double)(4*(SF - 2*DE))) * (packet->coderate + 4)); /* Explicitely cast to double to keep precision of the division */
 
         Tpayload = payloadSymbNb * Tsym;
+        MSG_CYAN(" (%ubytes) Tpayload:%f payloadSymbNb :%f ", packet->size, Tpayload, payloadSymbNb);
 
         /* Duration of packet */
         Tpacket = Tpreamble + Tpayload;
@@ -544,7 +573,7 @@ parse_lgw_pkt_tx_s(struct lgw_pkt_tx_s* pkt_data)
             case BW_125KHZ: dl->bw_khz = 125; break;
             case BW_250KHZ: dl->bw_khz = 250; break;
             case BW_500KHZ: dl->bw_khz = 500; break;
-            default: dl->bw_khz = 0; return -1;
+            default: dl->bw_khz = 0; printf("bw:%d\n", pkt_data->bandwidth); return -1;
         }
 
         switch (pkt_data->datarate) {
@@ -554,7 +583,7 @@ parse_lgw_pkt_tx_s(struct lgw_pkt_tx_s* pkt_data)
             case DR_LORA_SF10: dl->sf = 10; break;
             case DR_LORA_SF11: dl->sf = 11; break;
             case DR_LORA_SF12: dl->sf = 12; break;
-            default: dl->sf = 0; return -1;
+            default: dl->sf = 0; printf("sf:%d\n", pkt_data->datarate); return -1;
         }
 
         switch (pkt_data->coderate) {
@@ -562,7 +591,7 @@ parse_lgw_pkt_tx_s(struct lgw_pkt_tx_s* pkt_data)
             case CR_LORA_4_6: dl->cr = 2; break;
             case CR_LORA_4_7: dl->cr = 3; break;
             case CR_LORA_4_8: dl->cr = 4; break;
-            default: dl->cr = 0; return -1;
+            default: dl->cr = 0; printf("cr:%d\n", pkt_data->coderate); return -1;
         }
 
         if (pkt_data->preamble == 0) { /* if not explicit, use recommended LoRa preamble size */
@@ -573,7 +602,7 @@ parse_lgw_pkt_tx_s(struct lgw_pkt_tx_s* pkt_data)
         }
 
         toa_us = lgw_time_on_air_us(pkt_data);
-        //printf("toa_us:%u\n", toa_us);
+        printf("toa_us:%u\n", toa_us);
 
         symbol_period_seconds = (1 << dl->sf) / (float)(dl->bw_khz * 1000);
         //printf("symbol_period_seconds:%f\n", symbol_period_seconds);
@@ -594,7 +623,6 @@ parse_lgw_pkt_tx_s(struct lgw_pkt_tx_s* pkt_data)
 
     dl->tx_done_time.tv_sec = dl->tx_preamble_start_time.tv_sec;
     while (toa_us > 1000000) {
-        printf("toa_us one sec %u\n", toa_us);
         dl->tx_done_time.tv_sec++;
         toa_us -= 1000000;
     }
@@ -627,22 +655,28 @@ tx_to_shared(bool timestamped_tx)
     int ret;
     struct timespec rem;
     downlink_t* dl = &shared_memory1->downlink;
-    float symbol_period_seconds;
+    //float symbol_period_seconds;
 
     if (timestamped_tx) {
         /* sleep until time to transmit */
-        ret = clock_nanosleep(CLOCK_MONOTONIC, TIMER_ABSTIME, &dl->tx_preamble_start_time, &rem);
+        ret = clock_nanosleep(CLOCK_REALTIME, TIMER_ABSTIME, &dl->tx_preamble_start_time, &rem);
     }
     dl->transmitting = true;
-    /* sleep for preamble duration */
+    dl->tx_cnt++;
+    printf("gwtx at %uhz sf%dbw%u\n", dl->freq_hz, dl->sf, dl->bw_khz);
 
-    ret = clock_nanosleep(CLOCK_MONOTONIC, TIMER_ABSTIME, &dl->tx_preamble_end_time, &rem);
+    /* sleep for preamble duration 
+    ret = clock_nanosleep(CLOCK_REALTIME, TIMER_ABSTIME, &dl->tx_preamble_end_time, &rem);*/
+    ret = clock_nanosleep(CLOCK_REALTIME, TIMER_ABSTIME, &dl->tx_done_time, &rem);
     dl->transmitting = false;
 
+#if 0
     symbol_period_seconds = (1 << dl->sf) / (float)(dl->bw_khz * 1000);
     /* wait some coarse period before clearing downlink */
     //usleep((symbol_period_seconds * dl->payload_size * 8) * 1000000);
-    usleep(symbol_period_seconds * 1000000);
+    usleep(symbol_period_seconds * 1000000 * 8);
+#endif /* #if 0 */
+
     
     dl->preamble_length = 0;
     memset(dl->payload, 0, dl->payload_size);
@@ -670,7 +704,7 @@ void print_now()
 {
     struct timespec now;
 
-    if (clock_gettime (CLOCK_MONOTONIC, &now) == -1)
+    if (clock_gettime (CLOCK_REALTIME, &now) == -1)
         perror ("clock_gettime");
     printf("raw-now:%lu, %lu\n", now.tv_sec, now.tv_nsec);
 }
@@ -680,14 +714,27 @@ int lgw_send(struct lgw_pkt_tx_s pkt_data)
     struct timespec now, ts;
     double seconds_to_tx;
     uint64_t count_us;
+    uint32_t trigcnt;
 
     switch (pkt_data.tx_mode) {
         case TIMESTAMPED:
-            if (gps_tx_trigger)
+            lgw_get_trigcnt(&trigcnt);
+/*            if (trigcnt >= pkt_data.count_us) {
+                printf("[31mlgw_send() count_us in past: %u >= %u[0m\n", trigcnt, pkt_data.count_us);
                 return LGW_HAL_ERROR;
+            }*/
+            if ((pkt_data.count_us - trigcnt) > 128000000) {
+                printf("[31mlgw_send() count_us too far in future:%u[0m\n", pkt_data.count_us - trigcnt);
+                return LGW_HAL_ERROR;
+            }
+            printf("lgw_send() TIMESTAMPED count_us:%u diff:%u\n", pkt_data.count_us, pkt_data.count_us - trigcnt);
+            if (gps_tx_trigger) {
+                printf("[31mlgw_send() gps_tx_trigger set[0m\n");
+                return LGW_HAL_ERROR;
+            }
             //count_us_overflows
 
-            if (clock_gettime (CLOCK_MONOTONIC, &now) == -1)
+            if (clock_gettime (CLOCK_REALTIME, &now) == -1)
                 perror ("clock_gettime");
             //print_now();
             do {
@@ -714,28 +761,30 @@ int lgw_send(struct lgw_pkt_tx_s pkt_data)
                     printf("count_us overflow %f, %u\n", seconds_to_tx, count_us_overflows);
                 }
             } while (seconds_to_tx < 0);
-            printf("TIMESTAMPED seconds_to_tx:%f\n", seconds_to_tx);
+            //printf("TIMESTAMPED seconds_to_tx:%f\n", seconds_to_tx);
 
             if (difftimespec(ts, shared_memory1->downlink.tx_done_time) < 0) {
-                printf("tx begin is before previous tx end\n");
+                printf("[31mtx begin is before previous tx end[0m\n");
                 return LGW_HAL_ERROR;
             }
 
             shared_memory1->downlink.tx_preamble_start_time.tv_nsec = ts.tv_nsec;
             shared_memory1->downlink.tx_preamble_start_time.tv_sec = ts.tv_sec;
 
-            if (parse_lgw_pkt_tx_s(&pkt_data) < 0)
+            if (parse_lgw_pkt_tx_s(&pkt_data) < 0) {
+                printf("[31mparse_lgw_pkt_tx_s() failed[0m\n");
                 return LGW_HAL_ERROR;
+            }
             tx_to_shared(true);
             break;
         case ON_GPS:
-            //printf("todo ON_GPS\n");
+            printf("lgw_send() ON_GPS\n");
             memcpy(&g_pkt_data, &pkt_data, sizeof(struct lgw_pkt_tx_s));
             gps_tx_trigger = true;
             break;
         case IMMEDIATE:
-            //return LGW_HAL_ERROR;
-            if (clock_gettime (CLOCK_MONOTONIC, &now) == -1)
+            printf("lgw_send() IMMEDIATE\n");
+            if (clock_gettime (CLOCK_REALTIME, &now) == -1)
                 perror ("clock_gettime");
 
             //printf("         now:%u.%u\n", now.tv_sec, now.tv_nsec);
@@ -769,5 +818,72 @@ lgw_reg_w(uint16_t register_id, int32_t reg_value)
 
 const char* lgw_version_info() {
     return lgw_version_string;
+}
+
+uint32_t lgw_time_on_air(struct lgw_pkt_tx_s *packet) {
+    int32_t val;
+    uint8_t SF, H, DE;
+    uint16_t BW;
+    uint32_t payloadSymbNb, Tpacket;
+    double Tsym, Tpreamble, Tpayload, Tfsk;
+
+    if (packet == NULL) {
+        DEBUG_MSG("ERROR: Failed to compute time on air, wrong parameter\n");
+        return 0;
+    }
+
+    if (packet->modulation == MOD_LORA) {
+        /* Get bandwidth */
+        val = lgw_bw_getval(packet->bandwidth);
+        if (val != -1) {
+            BW = (uint16_t)(val / 1E3);
+        } else {
+            DEBUG_PRINTF("ERROR: Cannot compute time on air for this packet, unsupported bandwidth (0x%02X)\n", packet->bandwidth);
+            return 0;
+        }
+
+        /* Get datarate */
+        val = lgw_sf_getval(packet->datarate);
+        if (val != -1) {
+            SF = (uint8_t)val;
+        } else {
+            DEBUG_PRINTF("ERROR: Cannot compute time on air for this packet, unsupported datarate (0x%02X)\n", packet->datarate);
+            return 0;
+        }
+
+        /* Duration of 1 symbol */
+        Tsym = pow(2, SF) / BW;
+
+        /* Duration of preamble */
+        Tpreamble = (8 + 4.25) * Tsym; /* 8 programmed symbols in preamble */
+
+        /* Duration of payload */
+        H = (packet->no_header==false) ? 0 : 1; /* header is always enabled, except for beacons */
+        DE = (SF >= 11) ? 1 : 0; /* Low datarate optimization enabled for SF11 and SF12 */
+
+        payloadSymbNb = 8 + (ceil((double)(8*packet->size - 4*SF + 28 + 16 - 20*H) / (double)(4*(SF - 2*DE))) * (packet->coderate + 4)); /* Explicitely cast to double to keep precision of the division */
+
+        Tpayload = payloadSymbNb * Tsym;
+
+        /* Duration of packet */
+        Tpacket = Tpreamble + Tpayload;
+    } else if (packet->modulation == MOD_FSK) {
+        /* PREAMBLE + SYNC_WORD + PKT_LEN + PKT_PAYLOAD + CRC
+                PREAMBLE: default 5 bytes
+                SYNC_WORD: default 3 bytes
+                PKT_LEN: 1 byte (variable length mode)
+                PKT_PAYLOAD: x bytes
+                CRC: 0 or 2 bytes
+        */
+        Tfsk = (8 * (double)(packet->preamble + fsk_sync_word_size + 1 + packet->size + ((packet->no_crc == true) ? 0 : 2)) / (double)packet->datarate) * 1E3;
+
+        /* Duration of packet */
+        Tpacket = (uint32_t)Tfsk + 1; /* add margin for rounding */
+    } else {
+        Tpacket = 0;
+        DEBUG_PRINTF("ERROR: Cannot compute time on air for this packet, unsupported modulation (0x%02X)\n", packet->modulation);
+    }
+
+    return Tpacket;
 }
 
