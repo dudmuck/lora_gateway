@@ -189,15 +189,6 @@ struct lgw_conf_lbt_chan_s {
 };
 
 /**
-@struct lgw_conf_lbt_chan_s
-@brief Configuration structure for LBT channels
-*/
-struct lgw_conf_lbt_chan_s {
-    uint32_t freq_hz;
-    uint16_t scan_time_us;
-};
-
-/**
 @struct lgw_conf_lbt_s
 @brief Configuration structure for LBT specificities
 */
