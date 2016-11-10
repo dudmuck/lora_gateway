@@ -127,7 +127,7 @@ lgw_gps_get function.
 If the lgw_parse_nmea and lgw_gps_get are used in different threads, a mutex
 lock must be acquired before calling either function.
 */
-enum gps_msg lgw_parse_nmea(const char* serial_buff, int buff_size);
+enum gps_msg lgw_parse_nmea(char* serial_buff, int buff_size);
 
 /**
 @brief Parse Ublox proprietary messages coming from the GPS system
@@ -159,7 +159,7 @@ format that is exploitable by other functions in that library sub-module.
 If the lgw_parse_nmea/lgw_parse_ubx and lgw_gps_get are used in different
 threads, a mutex lock must be acquired before calling either function.
 */
-int lgw_gps_get(struct timespec *utc, struct timespec *gps_time, struct coord_s *loc, struct coord_s *err);
+int lgw_gps_get(struct timespec *utc, struct coord_s *loc, struct coord_s *err);
 
 /**
 @brief Get time and position information from the serial GPS last message received
@@ -172,7 +172,7 @@ int lgw_gps_get(struct timespec *utc, struct timespec *gps_time, struct coord_s 
 
 Set systime to 0 in ref to trigger initial synchronization.
 */
-int lgw_gps_sync(struct tref *ref, uint32_t count_us, struct timespec utc, struct timespec gps_time);
+int lgw_gps_sync(struct tref *ref, uint32_t count_us, struct timespec utc);
 
 /**
 @brief Convert concentrator timestamp counter value to UTC time

@@ -115,13 +115,13 @@ int lgw_utc2cnt(struct tref ref, struct timespec utc, uint32_t *count_us)
     return LGW_GPS_SUCCESS;
 }
 
-enum gps_msg lgw_parse_nmea(const char* serial_buff, int buff_size)
+enum gps_msg lgw_parse_nmea(char* serial_buff, int buff_size)
 {
     /* this function is called by 1PPS write to pipe from thread_fakegps() */
     return NMEA_RMC;
 }
 
-int lgw_gps_get(struct timespec *utc, struct timespec *gps_time, struct coord_s *loc, struct coord_s *err)
+int lgw_gps_get(struct timespec *utc, struct coord_s *loc, struct coord_s *err)
 {
     struct timespec now;
     if (clock_gettime (CLOCK_REALTIME, &now) == -1) {
@@ -131,14 +131,11 @@ int lgw_gps_get(struct timespec *utc, struct timespec *gps_time, struct coord_s 
     if (utc != NULL) {
         memcpy(utc, &now, sizeof(struct timespec));
     } 
-    if (gps_time != NULL) {
-        memcpy(gps_time, &now, sizeof(struct timespec));
-    } 
 
     return LGW_GPS_SUCCESS;
 }
 
-int lgw_gps_sync(struct tref *ref, uint32_t count_us, struct timespec utc, struct timespec gps_time)
+int lgw_gps_sync(struct tref *ref, uint32_t count_us, struct timespec utc)
 {
     ref->systime = time(NULL) - 1;  // -1 for gps_ref_age
     ref->count_us = count_us;
