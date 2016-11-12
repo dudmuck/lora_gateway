@@ -397,6 +397,7 @@ int lgw_board_setconf(struct lgw_conf_board_s conf) {
 /* ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
 
 int lgw_lbt_setconf(struct lgw_conf_lbt_s conf) {
+#ifndef DISABLE_FPGA
     int x;
 
     /* check if the concentrator is running */
@@ -410,6 +411,9 @@ int lgw_lbt_setconf(struct lgw_conf_lbt_s conf) {
         DEBUG_MSG("ERROR: Failed to configure concentrator for LBT\n");
         return LGW_HAL_ERROR;
     }
+#else
+    (void)conf;
+#endif /* DISABLE_FPGA */
 
     return LGW_HAL_SUCCESS;
 }
@@ -713,6 +717,7 @@ int lgw_start(void) {
     lgw_reg_w(LGW_GPIO_MODE,31); /* Set all GPIOs as output */
     lgw_reg_w(LGW_GPIO_SELECT_OUTPUT,2);
 
+#ifndef DISABLE_FPGA
     /* Configure LBT */
     if (lbt_is_enabled() == true) {
         lgw_reg_w(LGW_CLK32M_EN, 1);
@@ -730,6 +735,7 @@ int lgw_start(void) {
             return LGW_HAL_ERROR;
         }
     }
+#endif /* DISABLE_FPGA */
 
     /* Enable clocks */
     lgw_reg_w(LGW_GLOBAL_EN, 1);
@@ -1043,11 +1049,13 @@ int lgw_start(void) {
     /* enable GPS event capture */
     lgw_reg_w(LGW_GPS_EN, 1);
 
+#ifndef DISABLE_FPGA
     /* */
     if (lbt_is_enabled() == true) {
         printf("INFO: Configuring LBT, this may take few seconds, please wait...\n");
         wait_ms(8400);
     }
+#endif /* DISABLE_FPGA */
 
     lgw_is_started = true;
     return LGW_HAL_SUCCESS;
@@ -1296,7 +1304,10 @@ int lgw_receive(uint8_t max_pkt, struct lgw_pkt_rx_s *pkt_data) {
 /* ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
 
 int lgw_send(struct lgw_pkt_tx_s pkt_data) {
-    int i, x;
+    int i;
+#ifndef DISABLE_FPGA
+    int x;
+#endif /* DISABLE_FPGA */
     uint8_t buff[256+TX_METADATA_NB]; /* buffer to prepare the packet to send + metadata before SPI write burst */
     uint32_t part_int = 0; /* integer part for PLL register value calculation */
     uint32_t part_frac = 0; /* fractional part for PLL register value calculation */
@@ -1550,11 +1561,15 @@ int lgw_send(struct lgw_pkt_tx_s pkt_data) {
     lgw_reg_wb(LGW_TX_DATA_BUF_DATA, buff, transfer_size);
     DEBUG_ARRAY(i, transfer_size, buff);
 
+#ifndef DISABLE_FPGA
     x = lbt_is_channel_free(&pkt_data, &tx_allowed);
     if (x != LGW_LBT_SUCCESS) {
         DEBUG_MSG("ERROR: Failed to check channel availability for TX\n");
         return LGW_HAL_ERROR;
     }
+#else
+    tx_allowed = true;
+#endif /* DISABLE_FPGA */
     if (tx_allowed == true) {
         switch(pkt_data.tx_mode) {
             case IMMEDIATE:

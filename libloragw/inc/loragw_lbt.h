@@ -40,6 +40,7 @@ Maintainer: Michael Coracin
 */
 int lbt_setconf(struct lgw_conf_lbt_s * conf);
 
+#ifndef DISABLE_FPGA
 /**
 @brief Configure the concentrator for LBT feature
 @return LGW_LBT_ERROR id the operation failed, LGW_LBT_SUCCESS else
@@ -65,6 +66,7 @@ int lbt_is_channel_free(struct lgw_pkt_tx_s * pkt_data, bool * tx_allowed);
 @return true if enabled, false otherwise
 */
 bool lbt_is_enabled(void);
+#endif /* DISABLE_FPGA */
 
 #endif
 /* --- EOF ------------------------------------------------------------------ */

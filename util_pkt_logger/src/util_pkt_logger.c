@@ -475,6 +475,7 @@ int main(int argc, char **argv)
 
     /* main loop */
     while ((quit_sig != 1) && (exit_sig != 1)) {
+        uint32_t trig_cnt;
         /* fetch packets */
         nb_pkt = lgw_receive(ARRAY_SIZE(rxpkt), rxpkt);
         if (nb_pkt == LGW_HAL_ERROR) {
@@ -482,6 +483,11 @@ int main(int argc, char **argv)
             return EXIT_FAILURE;
         } else if (nb_pkt == 0) {
             clock_nanosleep(CLOCK_MONOTONIC, 0, &sleep_time, NULL); /* wait a short time if no packets */
+            i = lgw_get_trigcnt(&trig_cnt);
+            if (i == LGW_HAL_SUCCESS)
+                printf("trig_cnt:%u\n", trig_cnt);
+            else
+                printf("fail\n");
         } else {
             /* local timestamp generation until we get accurate GPS time */
             clock_gettime(CLOCK_REALTIME, &fetch_time);
@@ -493,6 +499,7 @@ int main(int argc, char **argv)
         for (i=0; i < nb_pkt; ++i) {
             p = &rxpkt[i];
 
+            printf("rx %uhz rssi:%f\n", p->freq_hz, p->rssi);
             /* writing gateway ID */
             fprintf(log_file, "\"%08X%08X\",", (uint32_t)(lgwm >> 32), (uint32_t)(lgwm & 0xFFFFFFFF));
 

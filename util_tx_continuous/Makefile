@@ -33,6 +33,9 @@ LGW_INC += $(LGW_PATH)/inc/loragw_aux.h
 ### Linking options
 
 LIBS := -lloragw -lrt -lm
+ifeq ($(CFG_SPI),ftdi) 
+    LIBS += -lmpsse
+endif
 
 ### General build targets
 

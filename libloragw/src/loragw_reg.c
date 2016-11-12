@@ -403,6 +403,7 @@ int page_switch(uint8_t target) {
 
 /* ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
 
+#ifndef DISABLE_FPGA
 bool check_fpga_version(uint8_t version) {
     int i;
 
@@ -414,6 +415,7 @@ bool check_fpga_version(uint8_t version) {
 
     return false;
 }
+#endif /* DISABLE_FPGA */
 
 /* ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
 
@@ -500,7 +502,9 @@ int reg_r_align32(void *spi_target, uint8_t spi_mux_mode, uint8_t spi_mux_target
 int lgw_connect(bool spi_only, uint32_t tx_notch_freq) {
     int spi_stat = LGW_SPI_SUCCESS;
     uint8_t u = 0;
+#ifndef DISABLE_FPGA
     int x;
+#endif
 
     /* check SPI link status */
     if (lgw_spi_target != NULL) {
@@ -516,6 +520,7 @@ int lgw_connect(bool spi_only, uint32_t tx_notch_freq) {
     }
 
     if (spi_only == false ) {
+#ifndef DISABLE_FPGA
         /* Detect if the gateway has an FPGA with SPI mux header support */
         /* First, we assume there is an FPGA, and try to read its version */
         spi_stat = lgw_spi_r(lgw_spi_target, LGW_SPI_MUX_MODE1, LGW_SPI_MUX_TARGET_FPGA, loregs[LGW_VERSION].addr, &u);
@@ -540,6 +545,10 @@ int lgw_connect(bool spi_only, uint32_t tx_notch_freq) {
                 return LGW_REG_ERROR;
             }
         }
+#else
+        (void)tx_notch_freq;
+        lgw_spi_mux_mode = LGW_SPI_MUX_MODE0;
+#endif /* DISABLE_FPGA */
 
         /* check SX1301 version */
         spi_stat = lgw_spi_r(lgw_spi_target, lgw_spi_mux_mode, LGW_SPI_MUX_TARGET_SX1301, loregs[LGW_VERSION].addr, &u);

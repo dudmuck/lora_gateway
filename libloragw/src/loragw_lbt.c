@@ -60,12 +60,14 @@ extern uint8_t lgw_spi_mux_mode; /*! current SPI mux mode used */
 /* -------------------------------------------------------------------------- */
 /* --- PRIVATE VARIABLES ---------------------------------------------------- */
 
-static bool lbt_enable;
+#ifndef DISABLE_FPGA
 static uint8_t lbt_nb_active_channel;
 static int8_t lbt_rssi_target_dBm;
 static int8_t lbt_rssi_offset_dB;
+static bool lbt_enable;
 static uint32_t lbt_start_freq;
 static struct lgw_conf_lbt_chan_s lbt_channel_cfg[LBT_CHANNEL_FREQ_NB];
+#endif /* DISABLE_FPGA */
 
 /* -------------------------------------------------------------------------- */
 /* --- PRIVATE FUNCTIONS ---------------------------------------------------- */
@@ -75,6 +77,7 @@ bool is_equal_freq(uint32_t a, uint32_t b);
 /* -------------------------------------------------------------------------- */
 /* --- PUBLIC FUNCTIONS DEFINITION ------------------------------------------ */
 
+#ifndef DISABLE_FPGA
 int lbt_setconf(struct lgw_conf_lbt_s * conf) {
     int i;
 
@@ -103,9 +106,11 @@ int lbt_setconf(struct lgw_conf_lbt_s * conf) {
 
     return LGW_LBT_SUCCESS;
 }
+#endif /* DISABLE_FPGA */
 
 /* ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
 
+#ifndef DISABLE_FPGA
 int lbt_setup(void) {
     int x, i;
     int32_t val;
@@ -199,9 +204,11 @@ int lbt_setup(void) {
     return LGW_LBT_SUCCESS;
 
 }
+#endif /* DISABLE_FPGA */
 
 /* ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
 
+#ifndef DISABLE_FPGA
 int lbt_start(void) {
     int x;
 
@@ -213,9 +220,11 @@ int lbt_start(void) {
 
     return LGW_LBT_SUCCESS;
 }
+#endif /* DISABLE_FPGA */
 
 /* ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
 
+#ifndef DISABLE_FPGA
 int lbt_is_channel_free(struct lgw_pkt_tx_s * pkt_data, bool * tx_allowed) {
     int i;
     int32_t val;
@@ -359,12 +368,15 @@ int lbt_is_channel_free(struct lgw_pkt_tx_s * pkt_data, bool * tx_allowed) {
 
     return LGW_LBT_SUCCESS;
 }
+#endif /* DISABLE_FPGA */
 
 /* ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
 
+#ifndef DISABLE_FPGA
 bool lbt_is_enabled(void) {
     return lbt_enable;
 }
+#endif /* DISABLE_FPGA */
 
 /* -------------------------------------------------------------------------- */
 /* --- PRIVATE FUNCTIONS DEFINITION ----------------------------------------- */

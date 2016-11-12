@@ -110,10 +110,12 @@ extern void *lgw_spi_target; /*! generic pointer to the SPI device */
 void sx125x_write(uint8_t channel, uint8_t addr, uint8_t data);
 uint8_t sx125x_read(uint8_t channel, uint8_t addr);
 
+#ifndef DISABLE_FPGA
 int setup_sx1272_FSK(uint32_t frequency, enum lgw_sx127x_rxbw_e rxbw_khz, int8_t rssi_offset);
 int setup_sx1276_FSK(uint32_t frequency, enum lgw_sx127x_rxbw_e rxbw_khz, int8_t rssi_offset);
 
 int reset_sx127x(enum lgw_radio_type_e radio_type);
+#endif /* DISABLE_FPGA */
 
 /* -------------------------------------------------------------------------- */
 /* --- PRIVATE FUNCTIONS DEFINITION ----------------------------------------- */
@@ -210,6 +212,7 @@ uint8_t sx125x_read(uint8_t channel, uint8_t addr) {
 
 /* ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
 
+#ifndef DISABLE_FPGA
 int setup_sx1272_FSK(uint32_t frequency, enum lgw_sx127x_rxbw_e rxbw_khz, int8_t rssi_offset) {
     uint64_t freq_reg;
     uint8_t ModulationShaping = 0;
@@ -283,9 +286,11 @@ int setup_sx1272_FSK(uint32_t frequency, enum lgw_sx127x_rxbw_e rxbw_khz, int8_t
 
     return LGW_REG_SUCCESS;
 }
+#endif /* DISABLE_FPGA */
 
 /* ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
 
+#ifndef DISABLE_FPGA
 int setup_sx1276_FSK(uint32_t frequency, enum lgw_sx127x_rxbw_e rxbw_khz, int8_t rssi_offset) {
     uint64_t freq_reg;
     uint8_t ModulationShaping = 0;
@@ -359,9 +364,11 @@ int setup_sx1276_FSK(uint32_t frequency, enum lgw_sx127x_rxbw_e rxbw_khz, int8_t
 
     return LGW_REG_SUCCESS;
 }
+#endif /* DISABLE_FPGA */
 
 /* ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
 
+#ifndef DISABLE_FPGA
 int reset_sx127x(enum lgw_radio_type_e radio_type) {
     int x;
 
@@ -389,6 +396,7 @@ int reset_sx127x(enum lgw_radio_type_e radio_type) {
 
     return LGW_REG_SUCCESS;
 }
+#endif /* DISABLE_FPGA */
 
 /* -------------------------------------------------------------------------- */
 /* --- PUBLIC FUNCTIONS DEFINITION ------------------------------------------ */
@@ -478,6 +486,7 @@ int lgw_setup_sx125x(uint8_t rf_chain, uint8_t rf_clkout, bool rf_enable, uint8_
 
 /* ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
 
+#ifndef DISABLE_FPGA
 int lgw_sx127x_reg_w(uint8_t address, uint8_t reg_value) {
     return lgw_spi_w(lgw_spi_target, LGW_SPI_MUX_MODE1, LGW_SPI_MUX_TARGET_SX127X, address, reg_value);
 }
@@ -487,9 +496,11 @@ int lgw_sx127x_reg_w(uint8_t address, uint8_t reg_value) {
 int lgw_sx127x_reg_r(uint8_t address, uint8_t *reg_value) {
     return lgw_spi_r(lgw_spi_target, LGW_SPI_MUX_MODE1, LGW_SPI_MUX_TARGET_SX127X, address, reg_value);
 }
+#endif /* DISABLE_FPGA */
 
 /* ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
 
+#ifndef DISABLE_FPGA
 int lgw_setup_sx127x(uint32_t frequency, uint8_t modulation, enum lgw_sx127x_rxbw_e rxbw_khz, int8_t rssi_offset) {
     int x, i;
     uint8_t version;
@@ -558,5 +569,6 @@ int lgw_setup_sx127x(uint32_t frequency, uint8_t modulation, enum lgw_sx127x_rxb
 
     return LGW_REG_SUCCESS;
 }
+#endif /* DISABLE_FPGA */
 
 /* --- EOF ------------------------------------------------------------------ */

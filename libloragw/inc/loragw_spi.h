@@ -36,12 +36,15 @@ Maintainer: Sylvain Miermont
 #define LGW_BURST_CHUNK     1024
 
 #define LGW_SPI_MUX_MODE0   0x0     /* No FPGA */
-#define LGW_SPI_MUX_MODE1   0x1     /* FPGA, with spi mux header */
+#ifndef DISABLE_FPGA
+    #define LGW_SPI_MUX_MODE1   0x1     /* FPGA, with spi mux header */
 
-#define LGW_SPI_MUX_TARGET_SX1301   0x0
-#define LGW_SPI_MUX_TARGET_FPGA     0x1
-#define LGW_SPI_MUX_TARGET_EEPROM   0x2
-#define LGW_SPI_MUX_TARGET_SX127X   0x3
+    #define LGW_SPI_MUX_TARGET_FPGA     0x1
+    #define LGW_SPI_MUX_TARGET_EEPROM   0x2
+    #define LGW_SPI_MUX_TARGET_SX127X   0x3
+#else
+    #define LGW_SPI_MUX_TARGET_SX1301   0x0
+#endif /* DISABLE_FPGA */
 
 /* -------------------------------------------------------------------------- */
 /* --- PUBLIC FUNCTIONS PROTOTYPES ------------------------------------------ */
