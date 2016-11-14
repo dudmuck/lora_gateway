@@ -389,6 +389,8 @@ enum gps_msg lgw_parse_nmea(char *serial_buff, int buff_size) {
             DEBUG_MSG("Warning: invalid GGA sentence (number of fields)\n");
             return INVALID;
         }
+        /* parse complete time */
+        i = sscanf(serial_buff + str_index[1], "%2hd%2hd%2hd%4f", &gps_hou, &gps_min, &gps_sec, &gps_fra);
         /* parse number of satellites used for fix */
         sscanf(serial_buff + str_index[7], "%hd", &gps_sat);
         /* parse 3D coordinates */
