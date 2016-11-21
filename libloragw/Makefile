@@ -91,7 +91,6 @@ OBJS = \
 
 ifndef DISABLE_FPGA
     OBJS += $(OBJDIR)/loragw_fpga.o 
-    CFLAGS += -DDISABLE_FPGA
 endif
 
 libloragw.a: $(OBJS)

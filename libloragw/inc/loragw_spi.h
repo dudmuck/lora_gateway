@@ -43,8 +43,8 @@ Maintainer: Sylvain Miermont
     #define LGW_SPI_MUX_TARGET_EEPROM   0x2
     #define LGW_SPI_MUX_TARGET_SX127X   0x3
 #else
-    #define LGW_SPI_MUX_TARGET_SX1301   0x0
 #endif /* DISABLE_FPGA */
+#define LGW_SPI_MUX_TARGET_SX1301   0x0
 
 /* -------------------------------------------------------------------------- */
 /* --- PUBLIC FUNCTIONS PROTOTYPES ------------------------------------------ */

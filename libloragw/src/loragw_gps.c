@@ -177,7 +177,7 @@ bool validate_nmea_checksum(char *serial_buff, int buff_size) {
 
     /* check if there are enough char in the serial buffer to read checksum */
     if (checksum_index >= (buff_size - 2)) {
-        DEBUG_MSG("ERROR: IMPOSSIBLE TO READ NMEA SENTENCE CHECKSUM\n");
+        DEBUG_MSG("ERROR: IMPOSSIBLE TO READ NMEA SENTENCE CHECKSUM, %u, %u\n", checksum_index, buff_size-2);
         return false;
     }
 
@@ -319,17 +319,10 @@ int lgw_gps_enable(char *tty_path, char *gps_familly, speed_t target_brate, int 
     return LGW_GPS_SUCCESS;
 }
 
-/* ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
-
-enum gps_msg lgw_parse_nmea(char *serial_buff, int buff_size) {
-    int i, j, k;
-    int str_index[30]; /* string index from the string chopping */
+static enum gps_msg _lgw_parse_nmea(char *serial_buff, int buff_size) {
+	int i, j, k;
     int nb_fields; /* number of strings detected by string chopping */
-
-    /* check input parameters */
-    if (serial_buff == NULL) {
-        return UNKNOWN;
-    }
+    int str_index[30]; /* string index from the string chopping */
 
     /* display received serial data and checksum */
     DEBUG_MSG("Note: parsing NMEA frame> %s", serial_buff);
@@ -412,6 +405,56 @@ enum gps_msg lgw_parse_nmea(char *serial_buff, int buff_size) {
         DEBUG_MSG("Note: ignored NMEA sentence\n"); /* quite verbose */
         return INVALID;
     }
+}
+
+/* ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
+
+typedef enum {
+	PARSE_STATE_FIND_$ = 0,
+	PARSE_STATE_FIND_LF
+} parse_state_e;
+
+#define NMEA_BUFF_SIZE		80
+enum gps_msg lgw_parse_nmea(char *_serial_buff, int _buff_size) {
+	int i;
+	static char nmea_buff[NMEA_BUFF_SIZE];
+	static uint8_t nmea_buff_size = 0;
+	static parse_state_e parse_state = PARSE_STATE_FIND_$;
+	enum gps_msg ret = IGNORED;
+
+    /* check input parameters */
+    if (_serial_buff == NULL) {
+        return UNKNOWN;
+    }
+
+	i = 0;
+	switch (parse_state) {
+		case PARSE_STATE_FIND_$:
+			while (_serial_buff[i] != '$') {
+				if (i++ == _buff_size) {
+					return ret;
+				}
+			}
+			parse_state = PARSE_STATE_FIND_LF;
+			nmea_buff_size = 0;
+			// fall-thru
+		case PARSE_STATE_FIND_LF:
+			while (_serial_buff[i] != '\n') {
+				nmea_buff[nmea_buff_size++] = _serial_buff[i];
+				if (i++ == _buff_size) {
+					return ret;
+				}
+			}
+			nmea_buff[nmea_buff_size++] = _serial_buff[i];
+			ret = _lgw_parse_nmea(nmea_buff, nmea_buff_size);
+			parse_state = PARSE_STATE_FIND_$;
+			break;
+		default:
+			parse_state = PARSE_STATE_FIND_$;
+			break;
+	} // ..switch (parse_state)
+
+	return ret;
 }
 
 /* ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
