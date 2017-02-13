@@ -13,6 +13,8 @@ struct uplink_struct {
     uint8_t cr;
     int8_t dBm_tx_power;
     bool has_packet;
+
+    //struct timespec dbg_txDone_time;
 };
 
 typedef struct {
@@ -30,13 +32,17 @@ typedef struct {
     uint8_t payload_size;
     uint8_t payload[256];
 
-    struct timespec tx_preamble_start_time, tx_preamble_end_time;
+    struct {
+        uint32_t preamble_start;
+        uint32_t preamble_end;
+        uint32_t tx_done;
+    } sx1301_cnt;
     uint8_t ppg;
 
     bool transmitting;
-    struct timespec tx_done_time;
     uint32_t tx_cnt;
     int8_t tx_dBm;
+
 } downlink_t;
 
 struct lora_shm_struct {

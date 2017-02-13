@@ -2,6 +2,8 @@ cmake_minimum_required(VERSION 2.6)
 project (rootproject)
 
 set(CMAKE_BINARY_DIR ${CMAKE_SOURCE_DIR}/build)
+
+SET(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall")
  
 set(EXECUTABLE_OUTPUT_PATH ${CMAKE_BINARY_DIR})
 set(LIBRARY_OUTPUT_PATH ${CMAKE_BINARY_DIR})

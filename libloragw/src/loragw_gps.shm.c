@@ -33,8 +33,11 @@ bool hal_run;
 bool pipe_open = false;
 
 void pps_tx(struct timespec*);
-bool gps_tx_trigger;
 extern struct lora_shm_struct *shared_memory1;  // from loragw_hal.shm.c
+
+double _difftimespec(struct timespec end, struct timespec beginning);
+void timespec_diff(struct timespec *start, struct timespec *stop,
+                   struct timespec *result);
 
 void
 thread_fakegps(void)
@@ -42,17 +45,16 @@ thread_fakegps(void)
     struct timespec dly, rem;
     struct timespec now;
 
+    if (clock_gettime (CLOCK_REALTIME, &now) == -1)
+        perror ("clock_gettime");
+
+    dly.tv_sec = now.tv_sec;
+    dly.tv_nsec = 5e8;
+
     while (hal_run) {
-        if (clock_gettime (CLOCK_REALTIME, &now) == -1)
-            perror ("clock_gettime");
+        clock_nanosleep(CLOCK_REALTIME, TIMER_ABSTIME, &dly, &rem);
 
-        if (gps_tx_trigger) {
-            pps_tx(&now);
-            gps_tx_trigger = false;
-        }
-
-        dly.tv_sec = now.tv_sec + 1;
-        dly.tv_nsec = now.tv_nsec;
+        /* simulate NMEA RMC */
         if (pipe_open) {
             /* cause read() to unblock: lgw_gps_get() will be called */
             uint8_t buf[PIPE_MSG_SIZE];
@@ -61,8 +63,7 @@ thread_fakegps(void)
             write(pfds[PFDS_WRITE_IDX], buf, PIPE_MSG_SIZE);
         }
 
-
-        clock_nanosleep(CLOCK_REALTIME, TIMER_ABSTIME, &dly, &rem);
+        dly.tv_sec++;
     }
 }
 
@@ -129,8 +130,9 @@ int lgw_gps_get(struct timespec *utc, struct coord_s *loc, struct coord_s *err)
         return LGW_GPS_ERROR;
     }
     if (utc != NULL) {
-        memcpy(utc, &now, sizeof(struct timespec));
-    } 
+        utc->tv_sec = now.tv_sec;
+        utc->tv_nsec = 0;
+    }
 
     return LGW_GPS_SUCCESS;
 }
@@ -147,17 +149,11 @@ int lgw_gps_sync(struct tref *ref, uint32_t count_us, struct timespec utc)
 
 int lgw_gps_enable(char *tty_path, char *gps_familly, speed_t target_brate, int *fd_ptr)
 {
-    int ret;
-    char foobuf[2];
-
     if (pipe(pfds) < 0) {
+        perror("pipe");
         return LGW_GPS_ERROR;
     } 
 
-    if (ret < 0) {
-        perror("write()");
-        return LGW_GPS_ERROR;
-    }
     *fd_ptr = pfds[PFDS_READ_IDX];  // give read end of pipe
     pipe_open = true;
 
@@ -176,17 +172,13 @@ lgw_cnt2gps(struct tref ref, uint32_t count_us, struct timespec* gps_time)
 int lgw_gps2cnt(struct tref ref, struct timespec gps_time, uint32_t* count_us)
 {
     uint64_t ret64;
+    struct timespec result;
 
-    gps_time.tv_sec -= shared_memory1->gw_start_ts.tv_sec;
-    gps_time.tv_nsec -= shared_memory1->gw_start_ts.tv_nsec;
-    if (gps_time.tv_nsec < 0) {
-        gps_time.tv_nsec += 1000000000;
-        gps_time.tv_sec--;
-    }
+    timespec_diff(&shared_memory1->gw_start_ts, &gps_time, &result);
 
     // convert to microseconds
-    ret64 = gps_time.tv_sec * 1e6;
-    ret64 += gps_time.tv_nsec / 1000;
+    ret64 = result.tv_sec * 1e6;
+    ret64 += result.tv_nsec / 1000;
 
     *count_us = (uint32_t)ret64;
 
