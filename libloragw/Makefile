@@ -11,6 +11,9 @@ CC := $(CROSS_COMPILE)gcc
 AR := $(CROSS_COMPILE)ar
 
 CFLAGS := -O2 -Wall -Wextra -std=c99 -Iinc -I.
+ifdef ENABLE_HAL_UBX
+    CFLAGS += -DENABLE_HAL_UBX
+endif
 
 ifdef DISABLE_FPGA
     CFLAGS += -DDISABLE_FPGA
@@ -28,7 +31,11 @@ endif
 
 ### general build targets
 
+ifdef ENABLE_HAL_UBX
+all: libloragw.a test_loragw_spi test_loragw_reg test_loragw_hal test_loragw_ubx test_loragw_cal
+else
 all: libloragw.a test_loragw_spi test_loragw_reg test_loragw_hal test_loragw_gps test_loragw_cal
+endif
 
 clean:
 	rm -f libloragw.a
@@ -54,7 +61,9 @@ inc/config.h: ../VERSION library.cfg
 	@echo "	#define DEBUG_HAL	$(DEBUG_HAL)" >> $@
 	@echo "	#define DEBUG_GPS	$(DEBUG_GPS)" >> $@
 	@echo "	#define DEBUG_GPIO	$(DEBUG_GPIO)" >> $@
-	@echo "	#define DEBUG_LBT	$(DEBUG_LBT)" >> $@
+	@echo " #define DEBUG_LBT   $(DEBUG_LBT)" >> $@
+	@echo "" >> $@
+	@echo " #define FPGA_KLK    $(FPGA_KLK)" >> $@
 	# end of file
 	@echo "#endif" >> $@
 	@echo "*** Configuration seems ok ***"
@@ -108,6 +117,9 @@ test_loragw_hal: tst/test_loragw_hal.c libloragw.a
 	$(CC) $(CFLAGS) -L. $< -o $@ $(LIBS)
 
 test_loragw_gps: tst/test_loragw_gps.c libloragw.a
+	$(CC) $(CFLAGS) -L. $< -o $@ $(LIBS)
+
+test_loragw_ubx: tst/test_loragw_ubx.c libloragw.a
 	$(CC) $(CFLAGS) -L. $< -o $@ $(LIBS)
 
 test_loragw_cal: tst/test_loragw_cal.c libloragw.a src/cal_fw.var

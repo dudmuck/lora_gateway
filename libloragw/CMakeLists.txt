@@ -10,7 +10,6 @@ set (DEBUG_LBT      0)
 cmake_minimum_required(VERSION 2.6)
 project (loragw)
 
-
 file (STRINGS "${CMAKE_SOURCE_DIR}/VERSION" LIBLORAGW_VERSION)
  
 set (PROJECT_INCLUDE_DIR ${PROJECT_SOURCE_DIR}/inc)
@@ -38,6 +37,7 @@ include_directories ("${PROJECT_BINARY_DIR}")
 include_directories ("${PROJECT_INCLUDE_DIR}")
  
 add_library (${PROJECT_NAME} STATIC ${PROJECT1_SRCS})
+set_property (TARGET ${PROJECT_NAME} PROPERTY C_STANDARD 99)
 
 set (CONF_HDR ${PROJECT_INCLUDE_DIR}/config.h)
 file (WRITE ${CONF_HDR} "#ifndef _LORAGW_CONFIGURATION_H\n")

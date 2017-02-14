@@ -106,11 +106,33 @@ void timespec_diff(struct timespec const *start, struct timespec const *stop,
 void
 count_us_to_timespec(uint32_t count_us, struct timespec* result)
 {
-    struct timespec ts;
+    struct timespec ts, now;
+    double diff;
 
     ts.tv_sec = count_us / 1000000;
     ts.tv_nsec = (count_us % 1000000) * 1000;
     timespec_add(&ts, &shared_memory1->gw_start_ts, result);
+
+    /* detect rollover of count_us */
+    if (clock_gettime (CLOCK_REALTIME, &now) == -1) {
+        perror ("clock_gettime");
+    }
+    diff = _difftimespec(*result, now);
+    /* if result is earlier now, diff should be negative */
+    //printf("us_to_timspec diff:%f\n", diff);
+    if (diff < 0) {
+        /* sx1301 counter rolled over, every 4925 seconds */
+        struct timespec saved_gw_start;
+        uint32_t cnt_overflow = 0xffffffff;
+        ts.tv_sec = cnt_overflow / 1000000;
+        ts.tv_nsec = (cnt_overflow % 1000000) * 1000;
+        ts.tv_nsec += 1000; // 2^32-1 to 2^32
+        saved_gw_start.tv_sec = shared_memory1->gw_start_ts.tv_sec;
+        saved_gw_start.tv_nsec = shared_memory1->gw_start_ts.tv_nsec;
+        timespec_add(&ts, &saved_gw_start, &shared_memory1->gw_start_ts);
+        printf("sx1301-rollover\n");
+        count_us_to_timespec(count_us, result);
+    }
 }
 
 void
@@ -207,6 +229,7 @@ void thread_send(void)
         sem_wait(&tx_sem);
         if (!hal_run)
             break;
+
         tx_busy = true;
         sleep_until_sx1301_cnt(shared_memory1->downlink.sx1301_cnt.preamble_start);
         pthread_mutex_lock(&mx_tx);
@@ -318,6 +341,7 @@ int lgw_start(void)
         perror ("clock_gettime");
         return LGW_HAL_ERROR;
     }
+    //shared_memory1->gw_start_ts.tv_sec -= 4163; // cause early rollover
     printf("gw_start_ts: %lu.%lu\n",
         shared_memory1->gw_start_ts.tv_sec,
         shared_memory1->gw_start_ts.tv_nsec
@@ -342,6 +366,7 @@ int lgw_start(void)
         perror("pthread_create");
         return LGW_HAL_ERROR;
     }
+    printf("shared memory HAL\n");
 
     return LGW_HAL_SUCCESS;
 }
@@ -413,7 +438,7 @@ struct timespec last_call;
 int lgw_receive(uint8_t max_pkt, struct lgw_pkt_rx_s *pkt_data)
 {
     struct timespec this_call;
-    struct timespec result;
+    //struct timespec result;
     int nb_pkt_fetch = 0; /* loop variable and return value */
     unsigned int uplink_idx;
 
@@ -426,9 +451,8 @@ int lgw_receive(uint8_t max_pkt, struct lgw_pkt_rx_s *pkt_data)
         first_lgw_receive = false;
     } else {
         double seconds_between_calls = _difftimespec(this_call, last_call);
-        //if (seconds_between_calls > 0.020 || seconds_between_calls < 0.005)
-        if (seconds_between_calls > 0.020) {
-            printf("seconds_between_calls:%f\n",  seconds_between_calls);
+        if (seconds_between_calls > 0.500) {
+            printf("lgw_receive() polling rate %fsecs\n",  seconds_between_calls);
             exit(EXIT_FAILURE);
         }
     }
@@ -473,7 +497,7 @@ int lgw_receive(uint8_t max_pkt, struct lgw_pkt_rx_s *pkt_data)
         }
 
         printf("lgw_receive: size:%d ", shm_uplink->size);
-        count_us_to_timespec(shm_uplink->tx_end_count_us, &result);
+        //count_us_to_timespec(shm_uplink->tx_end_count_us, &result);
         //printf("gw_start:%lu.%09lu\n", shared_memory1->_gw_start_ts.tv_sec, shared_memory1->_gw_start_ts.tv_nsec);
         //printf("count_us:%u (result %lu.%09lu [45mdiff:%fms[0m) ", shm_uplink->tx_end_count_us, result.tv_sec, result.tv_nsec, _difftimespec(result, shm_uplink->dbg_txDone_time)*1000);
 
@@ -786,7 +810,7 @@ int lgw_send(struct lgw_pkt_tx_s pkt_data)
     switch (pkt_data.tx_mode) {
         case TIMESTAMPED:
             now_cnt = get_current_sx1301_cnt();
-            printf("lgw_send() TIMESTAMPED at %u (%dus from now)\n", pkt_data.count_us, pkt_data.count_us - now_cnt);
+            printf("lgw_send() TIMESTAMPED at %08x (%dus from now)\n", pkt_data.count_us, pkt_data.count_us - now_cnt);
             if (pkt_data.count_us < now_cnt) {
                 printf("sending in past\n");
                 return LGW_HAL_ERROR;
@@ -804,7 +828,7 @@ int lgw_send(struct lgw_pkt_tx_s pkt_data)
             /* GPS trigger packet overrides any pending timestamped packet */
             lgw_get_trigcnt(&now_cnt);
             dl->sx1301_cnt.preamble_start = now_cnt + 1000000;
-            printf("lgw_send() ON_GPS at %u, %uhz\n", dl->sx1301_cnt.preamble_start, pkt_data.freq_hz);
+            printf("lgw_send() ON_GPS at %08x, %uhz\n", dl->sx1301_cnt.preamble_start, pkt_data.freq_hz);
             if (parse_lgw_pkt_tx_s(&pkt_data) < 0) {
                 printf("[31mparse_lgw_pkt_tx_s() failed[0m\n");
                 return LGW_HAL_ERROR;

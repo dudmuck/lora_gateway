@@ -98,7 +98,11 @@ int main()
     printf("*** Library version information ***\n%s\n***\n", lgw_version_info());
 
     /* Open and configure GPS */
-    i = lgw_gps_enable("/dev/ttyAMA0", NULL, 0, &gps_tty_dev);
+#ifdef __ARM_ARCH_5TEJ__
+    i = lgw_gps_enable("/dev/nmea", NULL, 0, &gps_tty_dev);  // kerlink
+#else
+    i = lgw_gps_enable("/dev/ttyAMA0", NULL, 0, &gps_tty_dev);  // RPi
+#endif
     if (i != LGW_GPS_SUCCESS) {
         printf("ERROR: IMPOSSIBLE TO ENABLE GPS\n");
         exit(EXIT_FAILURE);

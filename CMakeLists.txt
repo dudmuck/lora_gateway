@@ -27,6 +27,9 @@ list(APPEND util_pkt_logger_srcs
 
 add_executable(util_pkt_logger ${util_pkt_logger_srcs})
 add_dependencies(util_pkt_logger loragw)
+
+set_property (TARGET util_pkt_logger PROPERTY C_STANDARD 99)
+
 find_library(M_LIB m)
 find_library(P_LIB pthread)
 #target_link_libraries(util_pkt_logger ${CMAKE_BINARY_DIR}/libloragw.a ${M_LIB})

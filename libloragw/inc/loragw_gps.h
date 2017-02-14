@@ -107,6 +107,16 @@ enum gps_msg {
 */
 int lgw_gps_enable(char* tty_path, char* gps_familly, speed_t target_brate, int* fd_ptr);
 
+#ifdef ENABLE_HAL_UBX
+/**
+@brief Restore GPS serial configuration and close serial device
+
+@param fd file descriptor on GPS tty
+@return success if the function was able to complete
+*/
+int lgw_gps_disable(int fd);
+#endif /* ENABLE_HAL_UBX */
+
 /**
 @brief Restore GPS serial configuration and close serial device
 
@@ -128,6 +138,23 @@ If the lgw_parse_nmea and lgw_gps_get are used in different threads, a mutex
 lock must be acquired before calling either function.
 */
 enum gps_msg lgw_parse_nmea(char* serial_buff, int buff_size);
+
+#ifdef ENABLE_HAL_UBX
+/**
+@brief Parse Ublox proprietary messages coming from the GPS system
+
+@param serial_buff pointer to the string to be parsed
+@param buff_size maximum string lengths for UBX parsing (incl. null char)
+@param msg_size number of bytes parsed as UBX message if found
+@return type of frame parsed
+
+The RAW UBX sentences are parsed to a global set of variables shared with the
+lgw_gps_get function.
+If the lgw_parse_ubx and lgw_gps_get are used in different threads, a mutex
+lock must be acquired before calling either function.
+*/
+enum gps_msg lgw_parse_ubx(const char* serial_buff, size_t buff_size, size_t *msg_size);
+#endif /* ENABLE_HAL_UBX */
 
 /**
 @brief Parse Ublox proprietary messages coming from the GPS system
@@ -159,7 +186,12 @@ format that is exploitable by other functions in that library sub-module.
 If the lgw_parse_nmea/lgw_parse_ubx and lgw_gps_get are used in different
 threads, a mutex lock must be acquired before calling either function.
 */
+#ifdef ENABLE_HAL_UBX
+int lgw_gps_get(struct timespec *utc, struct timespec *gps_time, struct coord_s *loc, struct coord_s *err);
+#else
 int lgw_gps_get(struct timespec *utc, struct coord_s *loc, struct coord_s *err);
+#endif
+
 
 /**
 @brief Get time and position information from the serial GPS last message received
@@ -172,7 +204,11 @@ int lgw_gps_get(struct timespec *utc, struct coord_s *loc, struct coord_s *err);
 
 Set systime to 0 in ref to trigger initial synchronization.
 */
+#ifdef ENABLE_HAL_UBX
+int lgw_gps_sync(struct tref *ref, uint32_t count_us, struct timespec utc, struct timespec gps_time);
+#else
 int lgw_gps_sync(struct tref *ref, uint32_t count_us, struct timespec utc);
+#endif
 
 /**
 @brief Convert concentrator timestamp counter value to UTC time
@@ -202,6 +238,7 @@ transform an absolute UTC time into a matching internal concentrator timestamp.
 */
 int lgw_utc2cnt(struct tref ref,struct timespec utc, uint32_t* count_us);
 
+#ifdef ENABLE_HAL_UBX
 /**
 @brief Convert concentrator timestamp counter value to GPS time
 
@@ -229,6 +266,7 @@ This function is typically used when a packet must be sent at an accurate time
 transform an absolute GPS time into a matching internal concentrator timestamp.
 */
 int lgw_gps2cnt(struct tref ref, struct timespec gps_time, uint32_t* count_us);
+#endif /* ENABLE_HAL_UBX */
 
 #endif
 
