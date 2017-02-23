@@ -24,6 +24,7 @@
 
 #define PIPE_MSG_SIZE       2
 /********************************************************/
+#define UTC_GPS_EPOCH_DIFF      315964781   /* observed difference */
 
 #define PFDS_WRITE_IDX      1
 #define PFDS_READ_IDX       0
@@ -122,7 +123,11 @@ enum gps_msg lgw_parse_nmea(char* serial_buff, int buff_size)
     return NMEA_RMC;
 }
 
+#ifdef ENABLE_HAL_UBX
+int lgw_gps_get(struct timespec *utc, struct timespec *gps_time, struct coord_s *loc, struct coord_s *err)
+#else
 int lgw_gps_get(struct timespec *utc, struct coord_s *loc, struct coord_s *err)
+#endif
 {
     struct timespec now;
     if (clock_gettime (CLOCK_REALTIME, &now) == -1) {
@@ -134,14 +139,29 @@ int lgw_gps_get(struct timespec *utc, struct coord_s *loc, struct coord_s *err)
         utc->tv_nsec = 0;
     }
 
+#ifdef ENABLE_HAL_UBX
+    if (gps_time != NULL) {
+        /* epoch difference between UTC and GPS time */
+        gps_time->tv_sec = now.tv_sec - UTC_GPS_EPOCH_DIFF;
+        gps_time->tv_nsec = 0;
+    }
+#endif
+
     return LGW_GPS_SUCCESS;
 }
 
+#ifdef ENABLE_HAL_UBX
+int lgw_gps_sync(struct tref *ref, uint32_t count_us, struct timespec utc, struct timespec gps_time)
+#else
 int lgw_gps_sync(struct tref *ref, uint32_t count_us, struct timespec utc)
+#endif
 {
     ref->systime = time(NULL) - 1;  // -1 for gps_ref_age
     ref->count_us = count_us;
     ref->utc = utc;
+#ifdef ENABLE_HAL_UBX
+    ref->gps = gps_time;
+#endif
     ref->xtal_err = 1.0;
 
     return LGW_GPS_SUCCESS;
@@ -173,6 +193,10 @@ int lgw_gps2cnt(struct tref ref, struct timespec gps_time, uint32_t* count_us)
 {
     uint64_t ret64;
     struct timespec result;
+
+#ifdef ENABLE_HAL_UBX
+    gps_time.tv_sec += UTC_GPS_EPOCH_DIFF;
+#endif
 
     timespec_diff(&shared_memory1->gw_start_ts, &gps_time, &result);
 

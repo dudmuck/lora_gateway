@@ -32,6 +32,10 @@ set (PROJECT1_SRCS
     ${PROJECT_SOURCE_DIR}/loragw_radio.c
 )
 endif (SHM)
+
+if (UBX)
+    add_definitions(-DENABLE_HAL_UBX)
+endif (UBX)
  
 include_directories ("${PROJECT_BINARY_DIR}")
 include_directories ("${PROJECT_INCLUDE_DIR}")
