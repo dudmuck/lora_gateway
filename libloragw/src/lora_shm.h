@@ -54,3 +54,5 @@ struct lora_shm_struct {
     downlink_t downlink;
 };
 
+void count_us_to_timespec(uint32_t count_us, struct timespec* result);
+

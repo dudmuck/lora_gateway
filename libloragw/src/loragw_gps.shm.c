@@ -181,10 +181,13 @@ int lgw_gps_enable(char *tty_path, char *gps_familly, speed_t target_brate, int 
 }
 
 int
-lgw_cnt2gps(struct tref ref, uint32_t count_us, struct timespec* gps_time)
+lgw_cnt2gps(struct tref ref, uint32_t count_us, struct timespec* result)
 {
-    if (clock_gettime (CLOCK_REALTIME, gps_time) == -1)
-        perror ("clock_gettime");
+    count_us_to_timespec(count_us, result);
+
+#ifdef ENABLE_HAL_UBX
+    result->tv_sec -= UTC_GPS_EPOCH_DIFF;
+#endif
 
     return LGW_GPS_SUCCESS;
 }

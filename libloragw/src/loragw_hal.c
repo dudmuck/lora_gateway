@@ -33,8 +33,10 @@ Maintainer: Sylvain Miermont
 
 /* -------------------------------------------------------------------------- */
 /* --- PRIVATE MACROS ------------------------------------------------------- */
-
 #define ARRAY_SIZE(a) (sizeof(a) / sizeof((a)[0]))
+
+#define MSG(str)                fprintf(stderr, str)
+
 #if DEBUG_HAL == 1
     #define DEBUG_MSG(str)                fprintf(stderr, str)
     #define DEBUG_PRINTF(fmt, args...)    fprintf(stderr,"%s:%d: "fmt, __FUNCTION__, __LINE__, args)
@@ -1321,61 +1323,61 @@ int lgw_send(struct lgw_pkt_tx_s pkt_data) {
 
     /* check if the concentrator is running */
     if (lgw_is_started == false) {
-        DEBUG_MSG("ERROR: CONCENTRATOR IS NOT RUNNING, START IT BEFORE SENDING\n");
+        MSG("ERROR: CONCENTRATOR IS NOT RUNNING, START IT BEFORE SENDING\n");
         return LGW_HAL_ERROR;
     }
 
     /* check input range (segfault prevention) */
     if (pkt_data.rf_chain >= LGW_RF_CHAIN_NB) {
-        DEBUG_MSG("ERROR: INVALID RF_CHAIN TO SEND PACKETS\n");
+        MSG("ERROR: INVALID RF_CHAIN TO SEND PACKETS\n");
         return LGW_HAL_ERROR;
     }
 
     /* check input variables */
     if (rf_tx_enable[pkt_data.rf_chain] == false) {
-        DEBUG_MSG("ERROR: SELECTED RF_CHAIN IS DISABLED FOR TX ON SELECTED BOARD\n");
+        MSG("ERROR: SELECTED RF_CHAIN IS DISABLED FOR TX ON SELECTED BOARD\n");
         return LGW_HAL_ERROR;
     }
     if (rf_enable[pkt_data.rf_chain] == false) {
-        DEBUG_MSG("ERROR: SELECTED RF_CHAIN IS DISABLED\n");
+        MSG("ERROR: SELECTED RF_CHAIN IS DISABLED\n");
         return LGW_HAL_ERROR;
     }
     if (!IS_TX_MODE(pkt_data.tx_mode)) {
-        DEBUG_MSG("ERROR: TX_MODE NOT SUPPORTED\n");
+        MSG("ERROR: TX_MODE NOT SUPPORTED\n");
         return LGW_HAL_ERROR;
     }
     if (pkt_data.modulation == MOD_LORA) {
         if (!IS_LORA_BW(pkt_data.bandwidth)) {
-            DEBUG_MSG("ERROR: BANDWIDTH NOT SUPPORTED BY LORA TX\n");
+            MSG("ERROR: BANDWIDTH NOT SUPPORTED BY LORA TX\n");
             return LGW_HAL_ERROR;
         }
         if (!IS_LORA_STD_DR(pkt_data.datarate)) {
-            DEBUG_MSG("ERROR: DATARATE NOT SUPPORTED BY LORA TX\n");
+            MSG("ERROR: DATARATE NOT SUPPORTED BY LORA TX\n");
             return LGW_HAL_ERROR;
         }
         if (!IS_LORA_CR(pkt_data.coderate)) {
-            DEBUG_MSG("ERROR: CODERATE NOT SUPPORTED BY LORA TX\n");
+            MSG("ERROR: CODERATE NOT SUPPORTED BY LORA TX\n");
             return LGW_HAL_ERROR;
         }
         if (pkt_data.size > 255) {
-            DEBUG_MSG("ERROR: PAYLOAD LENGTH TOO BIG FOR LORA TX\n");
+            MSG("ERROR: PAYLOAD LENGTH TOO BIG FOR LORA TX\n");
             return LGW_HAL_ERROR;
         }
     } else if (pkt_data.modulation == MOD_FSK) {
         if((pkt_data.f_dev < 1) || (pkt_data.f_dev > 200)) {
-            DEBUG_MSG("ERROR: TX FREQUENCY DEVIATION OUT OF ACCEPTABLE RANGE\n");
+            MSG("ERROR: TX FREQUENCY DEVIATION OUT OF ACCEPTABLE RANGE\n");
             return LGW_HAL_ERROR;
         }
         if(!IS_FSK_DR(pkt_data.datarate)) {
-            DEBUG_MSG("ERROR: DATARATE NOT SUPPORTED BY FSK IF CHAIN\n");
+            MSG("ERROR: DATARATE NOT SUPPORTED BY FSK IF CHAIN\n");
             return LGW_HAL_ERROR;
         }
         if (pkt_data.size > 255) {
-            DEBUG_MSG("ERROR: PAYLOAD LENGTH TOO BIG FOR FSK TX\n");
+            MSG("ERROR: PAYLOAD LENGTH TOO BIG FOR FSK TX\n");
             return LGW_HAL_ERROR;
         }
     } else {
-        DEBUG_MSG("ERROR: INVALID TX MODULATION\n");
+        MSG("ERROR: INVALID TX MODULATION\n");
         return LGW_HAL_ERROR;
     }
 
@@ -1546,7 +1548,7 @@ int lgw_send(struct lgw_pkt_tx_s pkt_data) {
         buff[0] &= 0x7F; /* Always use narrow band for FSK (force MSB to 0) */
 
     } else {
-        DEBUG_MSG("ERROR: INVALID TX MODULATION..\n");
+        MSG("ERROR: INVALID TX MODULATION..\n");
         return LGW_HAL_ERROR;
     }
 
@@ -1564,7 +1566,7 @@ int lgw_send(struct lgw_pkt_tx_s pkt_data) {
 #ifndef DISABLE_FPGA
     x = lbt_is_channel_free(&pkt_data, &tx_allowed);
     if (x != LGW_LBT_SUCCESS) {
-        DEBUG_MSG("ERROR: Failed to check channel availability for TX\n");
+        MSG("ERROR: Failed to check channel availability for TX\n");
         return LGW_HAL_ERROR;
     }
 #else
@@ -1585,11 +1587,11 @@ int lgw_send(struct lgw_pkt_tx_s pkt_data) {
                 break;
 
             default:
-                DEBUG_PRINTF("ERROR: UNEXPECTED VALUE %d IN SWITCH STATEMENT\n", pkt_data.tx_mode);
+                printf("ERROR: UNEXPECTED VALUE %d IN SWITCH STATEMENT\n", pkt_data.tx_mode);
                 return LGW_HAL_ERROR;
         }
     } else {
-        DEBUG_MSG("ERROR: Cannot send packet, channel is busy (LBT)\n");
+        MSG("ERROR: Cannot send packet, channel is busy (LBT)\n");
         return LGW_LBT_ISSUE;
     }
 

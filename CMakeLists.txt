@@ -25,13 +25,28 @@ list(APPEND util_pkt_logger_srcs
     ${PROJECT_SOURCE_DIR}/util_pkt_logger/src/parson.c
 )
 
+find_library(M_LIB m)
+find_library(P_LIB pthread)
+
 add_executable(util_pkt_logger ${util_pkt_logger_srcs})
 add_dependencies(util_pkt_logger loragw)
 
+if (UBX)
+    list(APPEND test_loragw_ubx_srcs
+        ${PROJECT_SOURCE_DIR}/libloragw/tst/test_loragw_ubx.c
+    )
+    add_definitions(-DENABLE_HAL_UBX)
+    add_executable(test_loragw_ubx ${test_loragw_ubx_srcs})
+    add_dependencies(test_loragw_ubx loragw)
+    target_link_libraries(test_loragw_ubx
+        ${PROJECT_SOURCE_DIR}/libloragw/libloragw.a
+        ${M_LIB}
+        ${P_LIB}
+    )
+endif (UBX)
+
 set_property (TARGET util_pkt_logger PROPERTY C_STANDARD 99)
 
-find_library(M_LIB m)
-find_library(P_LIB pthread)
 #target_link_libraries(util_pkt_logger ${CMAKE_BINARY_DIR}/libloragw.a ${M_LIB})
 target_link_libraries(util_pkt_logger
     ${PROJECT_SOURCE_DIR}/libloragw/libloragw.a
