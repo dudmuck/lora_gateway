@@ -103,6 +103,21 @@ void timespec_diff(struct timespec const *start, struct timespec const *stop,
     return;
 }
 
+void roll_time_reference()
+{
+    struct timespec ts;
+    /* sx1301 counter rolled over, every 4925 seconds */
+    struct timespec saved_gw_start;
+    uint32_t cnt_overflow = 0xffffffff;
+    ts.tv_sec = cnt_overflow / 1000000;
+    ts.tv_nsec = (cnt_overflow % 1000000) * 1000;
+    ts.tv_nsec += 1000; // 2^32-1 to 2^32
+    saved_gw_start.tv_sec = shared_memory1->gw_start_ts.tv_sec;
+    saved_gw_start.tv_nsec = shared_memory1->gw_start_ts.tv_nsec;
+    timespec_add(&ts, &saved_gw_start, &shared_memory1->gw_start_ts);
+    printf("sx1301-rollover\n");
+}
+
 void
 count_us_to_timespec(uint32_t count_us, struct timespec* result)
 {
@@ -121,16 +136,7 @@ count_us_to_timespec(uint32_t count_us, struct timespec* result)
     /* if result is earlier now, diff should be negative */
     //printf("us_to_timspec diff:%f\n", diff);
     if (diff < 0) {
-        /* sx1301 counter rolled over, every 4925 seconds */
-        struct timespec saved_gw_start;
-        uint32_t cnt_overflow = 0xffffffff;
-        ts.tv_sec = cnt_overflow / 1000000;
-        ts.tv_nsec = (cnt_overflow % 1000000) * 1000;
-        ts.tv_nsec += 1000; // 2^32-1 to 2^32
-        saved_gw_start.tv_sec = shared_memory1->gw_start_ts.tv_sec;
-        saved_gw_start.tv_nsec = shared_memory1->gw_start_ts.tv_nsec;
-        timespec_add(&ts, &saved_gw_start, &shared_memory1->gw_start_ts);
-        printf("sx1301-rollover\n");
+        roll_time_reference();
         count_us_to_timespec(count_us, result);
     }
 }
@@ -341,7 +347,7 @@ int lgw_start(void)
         perror ("clock_gettime");
         return LGW_HAL_ERROR;
     }
-    //shared_memory1->gw_start_ts.tv_sec -= 4163; // cause early rollover
+    //shared_memory1->gw_start_ts.tv_sec -= 4244; // cause early rollover
     printf("gw_start_ts: %lu.%lu\n",
         shared_memory1->gw_start_ts.tv_sec,
         shared_memory1->gw_start_ts.tv_nsec
@@ -552,20 +558,27 @@ int lgw_txgain_setconf(struct lgw_tx_gain_lut_s *conf)
     return LGW_HAL_SUCCESS;
 }
 
-
-
 /* return current sx1301 time sampled on PPS pulse */
 int lgw_get_trigcnt(uint32_t* trig_cnt_us)
 {
     struct timespec tp;
     struct timespec result;
+    static uint32_t prev_trig_cnt = 0;
+    static uint32_t offset_us = 0;
     if (clock_gettime (CLOCK_REALTIME, &tp) == -1) {
         perror ("clock_gettime");
         return LGW_HAL_ERROR;
     }
     timespec_diff(&shared_memory1->gw_start_ts, &tp, &result);
 
-    *trig_cnt_us = result.tv_sec * 1000000;
+    *trig_cnt_us = (result.tv_sec * 1000000) + offset_us;
+    if (*trig_cnt_us < prev_trig_cnt) {
+        roll_time_reference();
+        offset_us += 32704;
+        prev_trig_cnt = offset_us;
+        return lgw_get_trigcnt(trig_cnt_us);
+    }
+    prev_trig_cnt = *trig_cnt_us;
 
     return LGW_HAL_SUCCESS;
 }
