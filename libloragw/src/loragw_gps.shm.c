@@ -22,7 +22,7 @@
 #define PLUS_10PPM          1.00001
 #define MINUS_10PPM         0.99999
 
-#define PIPE_MSG_SIZE       2
+#define PIPE_BUF_SIZE       16
 /********************************************************/
 #define UTC_GPS_EPOCH_DIFF      315964781   /* observed difference */
 
@@ -32,9 +32,11 @@ int pfds[2];
 
 bool hal_run;
 bool pipe_open = false;
+size_t pipe_wrote_size;
 
 void pps_tx(struct timespec*);
 extern struct lora_shm_struct *shared_memory1;  // from loragw_hal.shm.c
+void shared_memory_init(void);  // from hal.shm
 
 double _difftimespec(struct timespec end, struct timespec beginning);
 void timespec_diff(struct timespec *start, struct timespec *stop,
@@ -58,10 +60,22 @@ thread_fakegps(void)
         /* simulate NMEA RMC */
         if (pipe_open) {
             /* cause read() to unblock: lgw_gps_get() will be called */
-            uint8_t buf[PIPE_MSG_SIZE];
-            buf[0] = LGW_GPS_UBX_SYNC_CHAR;
-            buf[1] = 0;
-            write(pfds[PFDS_WRITE_IDX], buf, PIPE_MSG_SIZE);
+            int n = 0;
+            uint8_t buf[PIPE_BUF_SIZE ];
+            buf[n++] = LGW_GPS_NMEA_SYNC_CHAR;
+            buf[n++] = '\n';
+#ifdef ENABLE_HAL_UBX
+            buf[n++] = LGW_GPS_UBX_SYNC_CHAR;
+            buf[n++] = 0x62;
+            buf[n++] = 0x00; //class
+            buf[n++] = 0x00; //class
+            buf[n++] = 0x00; //length-lo
+            buf[n++] = 0x00; //length-hi
+            buf[n++] = 0x00; //checksum
+            buf[n++] = 0x00; //checksum
+#endif /* ENABLE_HAL_UBX */
+            write(pfds[PFDS_WRITE_IDX], buf, n);
+            pipe_wrote_size = n;
         }
 
         dly.tv_sec++;
@@ -169,6 +183,10 @@ int lgw_gps_sync(struct tref *ref, uint32_t count_us, struct timespec utc)
 
 int lgw_gps_enable(char *tty_path, char *gps_familly, speed_t target_brate, int *fd_ptr)
 {
+    if (shared_memory1 == NULL) {
+        shared_memory_init();
+    }
+
     if (pipe(pfds) < 0) {
         perror("pipe");
         return LGW_GPS_ERROR;
@@ -215,7 +233,7 @@ int lgw_gps2cnt(struct tref ref, struct timespec gps_time, uint32_t* count_us)
 enum gps_msg
 lgw_parse_ubx(const char* serial_buff, size_t buff_size, size_t *msg_size)
 {
-    *msg_size = PIPE_MSG_SIZE;
+    *msg_size = pipe_wrote_size;;
     return UBX_NAV_TIMEGPS;
 }
 

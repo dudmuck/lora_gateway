@@ -39,7 +39,7 @@ const char lgw_version_string[] = "Version: " LIBLORAGW_VERSION ";";
 
 void *shared_memory1_pointer = (void *)0;
 int shared_memory1_id;
-struct lora_shm_struct *shared_memory1;
+struct lora_shm_struct *shared_memory1 = NULL;
 
 pthread_t thrid_fakegps, thrid_send;
 extern bool hal_run;
@@ -320,12 +320,12 @@ uint32_t my_round(uint32_t hz)
     return ri * 10000;
 }
 
-int lgw_start(void)
+int shared_memory_init()
 {
     int ret;
 
-    if (!initialized_radio)
-        radio_init();
+    if (shared_memory1 != NULL)
+        return LGW_HAL_SUCCESS;
 
     shared_memory1_id = shmget((key_t)SHM_KEY, sizeof(struct lora_shm_struct), 0666 | IPC_CREAT);
     if (shared_memory1_id < 0) {
@@ -373,6 +373,18 @@ int lgw_start(void)
         return LGW_HAL_ERROR;
     }
     printf("shared memory HAL\n");
+
+    return LGW_HAL_SUCCESS;
+}
+
+int lgw_start(void)
+{
+    if (!initialized_radio)
+        radio_init();
+
+    if (shared_memory1 == NULL) {
+        return shared_memory_init();
+    }
 
     return LGW_HAL_SUCCESS;
 }
