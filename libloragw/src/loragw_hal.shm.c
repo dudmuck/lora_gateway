@@ -75,7 +75,7 @@ double _difftimespec(struct timespec end, struct timespec beginning) {
     return x;
 }
 
-void timespec_add(struct timespec const *t1, struct timespec const *t2,
+static void timespec_add(struct timespec const *t1, struct timespec const *t2,
                    struct timespec *result)
 {
     long sec = t2->tv_sec + t1->tv_sec;

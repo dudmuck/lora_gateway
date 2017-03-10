@@ -662,11 +662,12 @@ enum gps_msg lgw_parse_ubx(const char *serial_buff, size_t buff_size, size_t *ms
                 return INVALID;
             }
         } else { /* message contains less bytes than indicated by header */
-            DEBUG_MSG("ERROR: UBX message incomplete\n");
+            DEBUG_MSG("ERROR: UBX message incomplete msg_size:%d, buff_size:%d\n", *msg_size, buff_size);
             return INCOMPLETE;
         }
     } else { /* Not a UBX message */
         /* Ignore messages which are not UBX ones for now */
+        DEBUG_MSG("ERROR: not UBX message %02x %02x\n", serial_buff[0], serial_buff[1]);
         return IGNORED;
     }
 }
