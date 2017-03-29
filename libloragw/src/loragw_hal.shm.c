@@ -48,7 +48,9 @@ uint8_t ppg;
 
 void thread_fakegps(void);  // from loragw_gps.shm.c
 
-uint32_t count_us_overflows; // overflows every 2^32 microseconds
+static uint32_t count_us_overflows; // overflows every 2^32 microseconds
+static uint32_t prev_trig_cnt;
+static bool first_lgw_receive;
 
 static uint8_t fsk_sync_word_size = 3; /* default number of bytes for FSK sync word */
 
@@ -352,6 +354,8 @@ int shared_memory_init()
         shared_memory1->gw_start_ts.tv_sec,
         shared_memory1->gw_start_ts.tv_nsec
     );
+    prev_trig_cnt = 0;
+    first_lgw_receive = true;
     /////////////////////////////////////////////////////////
     sem_init(&tx_sem, 0, -1);
     shared_memory1->size = sizeof(struct lora_shm_struct);
@@ -407,6 +411,9 @@ int lgw_stop(void)
         return LGW_HAL_ERROR;
     }
 
+    shared_memory1 = NULL;
+    initialized_radio = false;
+
     return LGW_HAL_SUCCESS;
 }
 
@@ -451,7 +458,6 @@ rx_find_uplink_channel(uint16_t txer_bw_khz, uint32_t end_node_tx_freq_hz, uint8
 
 
 
-static bool first_lgw_receive = true;
 struct timespec last_call;
 int lgw_receive(uint8_t max_pkt, struct lgw_pkt_rx_s *pkt_data)
 {
@@ -575,7 +581,6 @@ int lgw_get_trigcnt(uint32_t* trig_cnt_us)
 {
     struct timespec tp;
     struct timespec result;
-    static uint32_t prev_trig_cnt = 0;
     static uint32_t offset_us = 0;
     if (clock_gettime (CLOCK_REALTIME, &tp) == -1) {
         perror ("clock_gettime");
