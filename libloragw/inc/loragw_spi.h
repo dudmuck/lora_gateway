@@ -46,6 +46,12 @@ Maintainer: Sylvain Miermont
 #endif /* DISABLE_FPGA */
 #define LGW_SPI_MUX_TARGET_SX1301   0x0
 
+typedef struct {
+    void *lgw_spi_target; /*! generic pointer to the SPI device */
+    int lgw_regpage; /*! keep the value of the register page selected */
+    uint8_t lgw_spi_mux_mode; /*! current SPI mux mode used */
+} cs_t;
+
 /* -------------------------------------------------------------------------- */
 /* --- PUBLIC FUNCTIONS PROTOTYPES ------------------------------------------ */
 
