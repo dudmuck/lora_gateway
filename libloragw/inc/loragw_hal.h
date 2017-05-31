@@ -302,14 +302,14 @@ struct lgw_tx_gain_lut_s {
 @param conf structure containing the configuration parameters
 @return LGW_HAL_ERROR id the operation failed, LGW_HAL_SUCCESS else
 */
-int lgw_board_setconf(struct lgw_conf_board_s conf);
+int lgw_board_setconf(uint8_t csn, struct lgw_conf_board_s conf);
 
 /**
 @brief Configure the gateway lbt function
 @param conf structure containing the configuration parameters
 @return LGW_HAL_ERROR id the operation failed, LGW_HAL_SUCCESS else
 */
-int lgw_lbt_setconf(struct lgw_conf_lbt_s conf);
+int lgw_lbt_setconf(uint8_t csn, struct lgw_conf_lbt_s conf);
 
 /**
 @brief Configure an RF chain (must configure before start)
@@ -317,7 +317,7 @@ int lgw_lbt_setconf(struct lgw_conf_lbt_s conf);
 @param conf structure containing the configuration parameters
 @return LGW_HAL_ERROR id the operation failed, LGW_HAL_SUCCESS else
 */
-int lgw_rxrf_setconf(uint8_t rf_chain, struct lgw_conf_rxrf_s conf);
+int lgw_rxrf_setconf(uint8_t csn, uint8_t rf_chain, struct lgw_conf_rxrf_s conf);
 
 /**
 @brief Configure an IF chain + modem (must configure before start)
@@ -325,26 +325,26 @@ int lgw_rxrf_setconf(uint8_t rf_chain, struct lgw_conf_rxrf_s conf);
 @param conf structure containing the configuration parameters
 @return LGW_HAL_ERROR id the operation failed, LGW_HAL_SUCCESS else
 */
-int lgw_rxif_setconf(uint8_t if_chain, struct lgw_conf_rxif_s conf);
+int lgw_rxif_setconf(uint8_t csn, uint8_t if_chain, struct lgw_conf_rxif_s conf);
 
 /**
 @brief Configure the Tx gain LUT
 @param pointer to structure defining the LUT
 @return LGW_HAL_ERROR id the operation failed, LGW_HAL_SUCCESS else
 */
-int lgw_txgain_setconf(struct lgw_tx_gain_lut_s *conf);
+int lgw_txgain_setconf(uint8_t csn, struct lgw_tx_gain_lut_s *conf);
 
 /**
 @brief Connect to the LoRa concentrator, reset it and configure it according to previously set parameters
 @return LGW_HAL_ERROR id the operation failed, LGW_HAL_SUCCESS else
 */
-int lgw_start(void);
+int lgw_start(uint8_t csn);
 
 /**
 @brief Stop the LoRa concentrator and disconnect it
 @return LGW_HAL_ERROR id the operation failed, LGW_HAL_SUCCESS else
 */
-int lgw_stop(void);
+int lgw_stop(uint8_t csn);
 
 /**
 @brief A non-blocking function that will fetch up to 'max_pkt' packets from the LoRa concentrator FIFO and data buffer
@@ -352,7 +352,7 @@ int lgw_stop(void);
 @param pkt_data pointer to an array of struct that will receive the packet metadata and payload pointers
 @return LGW_HAL_ERROR id the operation failed, else the number of packets retrieved
 */
-int lgw_receive(uint8_t max_pkt, struct lgw_pkt_rx_s *pkt_data);
+int lgw_receive(uint8_t csn, uint8_t max_pkt, struct lgw_pkt_rx_s *pkt_data);
 
 /**
 @brief Schedule a packet to be send immediately or after a delay depending on tx_mode
@@ -364,7 +364,7 @@ In 'timestamp' mode, this is transparent: the modem is started 1.5ms before the 
 In 'immediate' mode, the packet is emitted as soon as possible: transferring the packet (and its parameters) from the host to the concentrator takes some time, then there is the TX_START_DELAY, then the packet is emitted.
 In 'triggered' mode (aka PPS/GPS mode), the packet, typically a beacon, is emitted 1.5ms after a rising edge of the trigger signal. Because there is no way to anticipate the triggering event and start the analog circuitry beforehand, that delay must be taken into account in the protocol.
 */
-int lgw_send(struct lgw_pkt_tx_s pkt_data);
+int lgw_send(uint8_t csn, struct lgw_pkt_tx_s pkt_data);
 
 /**
 @brief Give the the status of different part of the LoRa concentrator
@@ -372,26 +372,26 @@ int lgw_send(struct lgw_pkt_tx_s pkt_data);
 @param code is used to return the status code
 @return LGW_HAL_ERROR id the operation failed, LGW_HAL_SUCCESS else
 */
-int lgw_status(uint8_t select, uint8_t *code);
+int lgw_status(uint8_t csn, uint8_t select, uint8_t *code);
 
 /**
 @brief Abort a currently scheduled or ongoing TX
 @return LGW_HAL_ERROR id the operation failed, LGW_HAL_SUCCESS else
 */
-int lgw_abort_tx(void);
+int lgw_abort_tx(uint8_t csn);
 
 /**
 @brief Return value of internal counter when latest event (eg GPS pulse) was captured
 @param trig_cnt_us pointer to receive timestamp value
 @return LGW_HAL_ERROR id the operation failed, LGW_HAL_SUCCESS else
 */
-int lgw_get_trigcnt(uint32_t* trig_cnt_us);
+int lgw_get_trigcnt(uint8_t csn, uint32_t* trig_cnt_us);
 
 /**
 @brief Allow user to check the version/options of the library once compiled
 @return pointer on a human-readable null terminated string
 */
-const char* lgw_version_info(void);
+const char* lgw_version_info(uint8_t csn);
 
 /**
 @brief Return time on air of given packet, in milliseconds

@@ -379,7 +379,7 @@ int32_t lgw_sf_getval(int x) {
 /* -------------------------------------------------------------------------- */
 /* --- PUBLIC FUNCTIONS DEFINITION ------------------------------------------ */
 
-int lgw_board_setconf(struct lgw_conf_board_s conf) {
+int lgw_board_setconf(uint8_t csn, struct lgw_conf_board_s conf) {
 
     /* check if the concentrator is running */
     if (lgw_is_started == true) {
@@ -398,7 +398,7 @@ int lgw_board_setconf(struct lgw_conf_board_s conf) {
 
 /* ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
 
-int lgw_lbt_setconf(struct lgw_conf_lbt_s conf) {
+int lgw_lbt_setconf(uint8_t csn, struct lgw_conf_lbt_s conf) {
 #ifndef DISABLE_FPGA
     int x;
 
@@ -422,7 +422,7 @@ int lgw_lbt_setconf(struct lgw_conf_lbt_s conf) {
 
 /* ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
 
-int lgw_rxrf_setconf(uint8_t rf_chain, struct lgw_conf_rxrf_s conf) {
+int lgw_rxrf_setconf(uint8_t csn, uint8_t rf_chain, struct lgw_conf_rxrf_s conf) {
 
     /* check if the concentrator is running */
     if (lgw_is_started == true) {
@@ -463,7 +463,7 @@ int lgw_rxrf_setconf(uint8_t rf_chain, struct lgw_conf_rxrf_s conf) {
 
 /* ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
 
-int lgw_rxif_setconf(uint8_t if_chain, struct lgw_conf_rxif_s conf) {
+int lgw_rxif_setconf(uint8_t csn, uint8_t if_chain, struct lgw_conf_rxif_s conf) {
     int32_t bw_hz;
     uint32_t rf_rx_bandwidth;
 
@@ -618,7 +618,7 @@ int lgw_rxif_setconf(uint8_t if_chain, struct lgw_conf_rxif_s conf) {
 
 /* ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
 
-int lgw_txgain_setconf(struct lgw_tx_gain_lut_s *conf) {
+int lgw_txgain_setconf(uint8_t csn, struct lgw_tx_gain_lut_s *conf) {
     int i;
 
     /* Check LUT size */
@@ -664,7 +664,7 @@ int lgw_txgain_setconf(struct lgw_tx_gain_lut_s *conf) {
 
 /* ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
 
-int lgw_start(void) {
+int lgw_start(uint8_t csn) {
     int i, err;
     int reg_stat;
     unsigned x;
@@ -1066,7 +1066,7 @@ int lgw_start(void) {
 
 /* ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
 
-int lgw_stop(void) {
+int lgw_stop(uint8_t csn) {
     lgw_soft_reset();
     lgw_disconnect();
 
@@ -1076,7 +1076,7 @@ int lgw_stop(void) {
 
 /* ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
 
-int lgw_receive(uint8_t max_pkt, struct lgw_pkt_rx_s *pkt_data) {
+int lgw_receive(uint8_t csn, uint8_t max_pkt, struct lgw_pkt_rx_s *pkt_data) {
     int nb_pkt_fetch; /* loop variable and return value */
     struct lgw_pkt_rx_s *p; /* pointer to the current structure in the struct array */
     uint8_t buff[255+RX_METADATA_NB]; /* buffer to store the result of SPI read bursts */
@@ -1306,7 +1306,7 @@ int lgw_receive(uint8_t max_pkt, struct lgw_pkt_rx_s *pkt_data) {
 
 /* ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
 
-int lgw_send(struct lgw_pkt_tx_s pkt_data) {
+int lgw_send(uint8_t csn, struct lgw_pkt_tx_s pkt_data) {
     int i;
 #ifndef DISABLE_FPGA
     int x;
@@ -1557,7 +1557,7 @@ int lgw_send(struct lgw_pkt_tx_s pkt_data) {
     memcpy((void *)(buff + payload_offset), (void *)(pkt_data.payload), pkt_data.size);
 
     /* reset TX command flags */
-    lgw_abort_tx();
+    lgw_abort_tx(csn);
 
     /* put metadata + payload in the TX data buffer */
     lgw_reg_w(LGW_TX_DATA_BUF_ADDR, 0);
@@ -1565,7 +1565,7 @@ int lgw_send(struct lgw_pkt_tx_s pkt_data) {
     DEBUG_ARRAY(i, transfer_size, buff);
 
 #ifndef DISABLE_FPGA
-    x = lbt_is_channel_free(&pkt_data, &tx_allowed);
+    x = lbt_is_channel_free(csn, &pkt_data, &tx_allowed);
     if (x != LGW_LBT_SUCCESS) {
         MSG("ERROR: Failed to check channel availability for TX\n");
         return LGW_HAL_ERROR;
@@ -1601,7 +1601,7 @@ int lgw_send(struct lgw_pkt_tx_s pkt_data) {
 
 /* ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
 
-int lgw_status(uint8_t select, uint8_t *code) {
+int lgw_status(uint8_t csn, uint8_t select, uint8_t *code) {
     int32_t read_value;
 
     /* check input variables */
@@ -1633,7 +1633,7 @@ int lgw_status(uint8_t select, uint8_t *code) {
 
 /* ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
 
-int lgw_abort_tx(void) {
+int lgw_abort_tx(uint8_t csn) {
     int i;
 
     i = lgw_reg_w(LGW_TX_TRIG_ALL, 0);
@@ -1644,7 +1644,7 @@ int lgw_abort_tx(void) {
 
 /* ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
 
-int lgw_get_trigcnt(uint32_t* trig_cnt_us) {
+int lgw_get_trigcnt(uint8_t csn, uint32_t* trig_cnt_us) {
     int i;
     int32_t val;
 
@@ -1659,7 +1659,7 @@ int lgw_get_trigcnt(uint32_t* trig_cnt_us) {
 
 /* ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
 
-const char* lgw_version_info() {
+const char* lgw_version_info(uint8_t csn) {
     return lgw_version_string;
 }
 

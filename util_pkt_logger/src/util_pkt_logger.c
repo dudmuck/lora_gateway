@@ -66,7 +66,7 @@ char log_file_name[64];
 
 static void sig_handler(int sigio);
 
-int parse_SX1301_configuration(const char * conf_file);
+int parse_SX1301_configuration(uint8_t, const char * conf_file);
 
 int parse_gateway_configuration(const char * conf_file);
 
@@ -85,9 +85,10 @@ static void sig_handler(int sigio) {
     }
 }
 
-int parse_SX1301_configuration(const char * conf_file) {
+int parse_SX1301_configuration(uint8_t csn, const char * conf_file) {
     int i;
-    const char conf_obj[] = "SX1301_conf";
+    //const char conf_obj[] = "SX1301_conf";
+    const char* conf_obj;
     char param_name[32]; /* used to generate variable parameter names */
     const char *str; /* used to store string value from JSON object */
     struct lgw_conf_board_s boardconf;
@@ -98,6 +99,11 @@ int parse_SX1301_configuration(const char * conf_file) {
     JSON_Object *conf = NULL;
     JSON_Value *val;
     uint32_t sf, bw;
+
+    if (csn)
+        conf_obj = "SX1301_confB";
+    else
+        conf_obj = "SX1301_confA";
 
     /* try to parse JSON */
     root_val = json_parse_file_with_comments(conf_file);
@@ -132,7 +138,7 @@ int parse_SX1301_configuration(const char * conf_file) {
     }
     MSG("INFO: lorawan_public %d, clksrc %d\n", boardconf.lorawan_public, boardconf.clksrc);
     /* all parameters parsed, submitting configuration to the HAL */
-    if (lgw_board_setconf(boardconf) != LGW_HAL_SUCCESS) {
+    if (lgw_board_setconf(csn, boardconf) != LGW_HAL_SUCCESS) {
         MSG("ERROR: Failed to configure board\n");
         return -1;
     }
@@ -185,7 +191,7 @@ int parse_SX1301_configuration(const char * conf_file) {
             MSG("INFO: radio %i enabled (type %s), center frequency %u, RSSI offset %f, tx enabled %d, tx_notch_freq %u\n", i, str, rfconf.freq_hz, rfconf.rssi_offset, rfconf.tx_enable, rfconf.tx_notch_freq);
         }
         /* all parameters parsed, submitting configuration to the HAL */
-        if (lgw_rxrf_setconf(i, rfconf) != LGW_HAL_SUCCESS) {
+        if (lgw_rxrf_setconf(csn, i, rfconf) != LGW_HAL_SUCCESS) {
             MSG("ERROR: invalid configuration for radio %i\n", i);
             return -1;
         }
@@ -219,7 +225,7 @@ int parse_SX1301_configuration(const char * conf_file) {
             MSG("INFO: LoRa multi-SF channel %i enabled, radio %i selected, IF %i Hz, 125 kHz bandwidth, SF 7 to 12\n", i, ifconf.rf_chain, ifconf.freq_hz);
         }
         /* all parameters parsed, submitting configuration to the HAL */
-        if (lgw_rxif_setconf(i, ifconf) != LGW_HAL_SUCCESS) {
+        if (lgw_rxif_setconf(csn, i, ifconf) != LGW_HAL_SUCCESS) {
             MSG("ERROR: invalid configuration for Lora multi-SF channel %i\n", i);
             return -1;
         }
@@ -261,7 +267,7 @@ int parse_SX1301_configuration(const char * conf_file) {
             }
             MSG("INFO: LoRa standard channel enabled, radio %i selected, IF %i Hz, %u Hz bandwidth, SF %u\n", ifconf.rf_chain, ifconf.freq_hz, bw, sf);
         }
-        if (lgw_rxif_setconf(8, ifconf) != LGW_HAL_SUCCESS) {
+        if (lgw_rxif_setconf(csn, 8, ifconf) != LGW_HAL_SUCCESS) {
             MSG("ERROR: invalid configuration for Lora standard channel\n");
             return -1;
         }
@@ -296,7 +302,7 @@ int parse_SX1301_configuration(const char * conf_file) {
             ifconf.datarate = (uint32_t)json_object_dotget_number(conf, "chan_FSK.datarate");
             MSG("INFO: FSK channel enabled, radio %i selected, IF %i Hz, %u Hz bandwidth, %u bps datarate\n", ifconf.rf_chain, ifconf.freq_hz, bw, ifconf.datarate);
         }
-        if (lgw_rxif_setconf(9, ifconf) != LGW_HAL_SUCCESS) {
+        if (lgw_rxif_setconf(csn, 9, ifconf) != LGW_HAL_SUCCESS) {
             MSG("ERROR: invalid configuration for FSK channel\n");
             return -1;
         }
@@ -366,7 +372,7 @@ void open_log(void) {
 
 /* describe command line options */
 void usage(void) {
-    printf("*** Library version information ***\n%s\n\n", lgw_version_info());
+    printf("*** Library version information ***\n%s\n\n", lgw_version_info(0));
     printf( "Available options:\n");
     printf( " -h print this help\n");
     printf( " -r <int> rotate log file every N seconds (-1 disable log rotation)\n");
@@ -435,22 +441,26 @@ int main(int argc, char **argv)
     if (access(debug_conf_fname, R_OK) == 0) {
     /* if there is a debug conf, parse only the debug conf */
         MSG("INFO: found debug configuration file %s, other configuration files will be ignored\n", debug_conf_fname);
-        parse_SX1301_configuration(debug_conf_fname);
+        parse_SX1301_configuration(0, debug_conf_fname);
+        parse_SX1301_configuration(1, debug_conf_fname);
         parse_gateway_configuration(debug_conf_fname);
     } else if (access(global_conf_fname, R_OK) == 0) {
     /* if there is a global conf, parse it and then try to parse local conf  */
         MSG("INFO: found global configuration file %s, trying to parse it\n", global_conf_fname);
-        parse_SX1301_configuration(global_conf_fname);
+        parse_SX1301_configuration(0, global_conf_fname);
+        parse_SX1301_configuration(1, global_conf_fname);
         parse_gateway_configuration(global_conf_fname);
         if (access(local_conf_fname, R_OK) == 0) {
             MSG("INFO: found local configuration file %s, trying to parse it\n", local_conf_fname);
-            parse_SX1301_configuration(local_conf_fname);
+            parse_SX1301_configuration(0, local_conf_fname);
+            parse_SX1301_configuration(1, local_conf_fname);
             parse_gateway_configuration(local_conf_fname);
         }
     } else if (access(local_conf_fname, R_OK) == 0) {
     /* if there is only a local conf, parse it and that's all */
         MSG("INFO: found local configuration file %s, trying to parse it\n", local_conf_fname);
-        parse_SX1301_configuration(local_conf_fname);
+        parse_SX1301_configuration(0, local_conf_fname);
+        parse_SX1301_configuration(1, local_conf_fname);
         parse_gateway_configuration(local_conf_fname);
     } else {
         MSG("ERROR: failed to find any configuration file named %s, %s or %s\n", global_conf_fname, local_conf_fname, debug_conf_fname);
@@ -458,7 +468,7 @@ int main(int argc, char **argv)
     }
 
     /* starting the concentrator */
-    i = lgw_start();
+    i = lgw_start(0);
     if (i == LGW_HAL_SUCCESS) {
         MSG("INFO: concentrator started, packet can now be received\n");
     } else {
@@ -477,13 +487,13 @@ int main(int argc, char **argv)
     while ((quit_sig != 1) && (exit_sig != 1)) {
         uint32_t trig_cnt;
         /* fetch packets */
-        nb_pkt = lgw_receive(ARRAY_SIZE(rxpkt), rxpkt);
+        nb_pkt = lgw_receive(0, ARRAY_SIZE(rxpkt), rxpkt);
         if (nb_pkt == LGW_HAL_ERROR) {
             MSG("ERROR: failed packet fetch, exiting\n");
             return EXIT_FAILURE;
         } else if (nb_pkt == 0) {
             clock_nanosleep(CLOCK_MONOTONIC, 0, &sleep_time, NULL); /* wait a short time if no packets */
-            i = lgw_get_trigcnt(&trig_cnt);
+            i = lgw_get_trigcnt(0, &trig_cnt);
             if (i != LGW_HAL_SUCCESS)
                 printf("lgw_get_trigcnt fail\n");
             /*if (i == LGW_HAL_SUCCESS)
@@ -618,7 +628,7 @@ int main(int argc, char **argv)
 
     if (exit_sig == 1) {
         /* clean up before leaving */
-        i = lgw_stop();
+        i = lgw_stop(0);
         if (i == LGW_HAL_SUCCESS) {
             MSG("INFO: concentrator stopped successfully\n");
         } else {

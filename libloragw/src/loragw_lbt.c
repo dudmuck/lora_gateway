@@ -225,7 +225,7 @@ int lbt_start(void) {
 /* ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
 
 #ifndef DISABLE_FPGA
-int lbt_is_channel_free(struct lgw_pkt_tx_s * pkt_data, bool * tx_allowed) {
+int lbt_is_channel_free(uint8_t csn, struct lgw_pkt_tx_s * pkt_data, bool * tx_allowed) {
     int i;
     int32_t val;
     uint32_t tx_start_time = 0;
@@ -255,7 +255,7 @@ int lbt_is_channel_free(struct lgw_pkt_tx_s * pkt_data, bool * tx_allowed) {
         }
 
         /* Get SX1301 time at last PPS */
-        lgw_get_trigcnt(&sx1301_time);
+        lgw_get_trigcnt(csn, &sx1301_time);
 
         DEBUG_MSG("################################\n");
         switch(pkt_data->tx_mode) {
