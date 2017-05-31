@@ -462,7 +462,7 @@ int main(int argc, char **argv)
     if (i == LGW_HAL_SUCCESS) {
         MSG("INFO: concentrator started, packet can now be received\n");
     } else {
-        MSG("ERROR: failed to start the concentrator\n");
+        MSG("ERROR: lgw_start() failed\n");
         return EXIT_FAILURE;
     }
 
@@ -484,10 +484,12 @@ int main(int argc, char **argv)
         } else if (nb_pkt == 0) {
             clock_nanosleep(CLOCK_MONOTONIC, 0, &sleep_time, NULL); /* wait a short time if no packets */
             i = lgw_get_trigcnt(&trig_cnt);
-            if (i == LGW_HAL_SUCCESS)
+            if (i != LGW_HAL_SUCCESS)
+                printf("lgw_get_trigcnt fail\n");
+            /*if (i == LGW_HAL_SUCCESS)
                 printf("trig_cnt:%u\n", trig_cnt);
             else
-                printf("fail\n");
+                printf("fail\n");*/
         } else {
             /* local timestamp generation until we get accurate GPS time */
             clock_gettime(CLOCK_REALTIME, &fetch_time);

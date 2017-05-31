@@ -96,8 +96,8 @@ const struct lgw_reg_s fpga_regs[LGW_FPGA_TOTALREGS] = {
 /* -------------------------------------------------------------------------- */
 /* --- PRIVATE VARIABLES ---------------------------------------------------- */
 
-extern void *lgw_spi_target; /*! generic pointer to the SPI device */
-extern uint8_t lgw_spi_mux_mode; /*! current SPI mux mode used */
+extern void *lgw_spi_target0; /*! generic pointer to the SPI device */
+//extern uint8_t lgw_spi_mux_mode0; /*! current SPI mux mode used */
 
 /* -------------------------------------------------------------------------- */
 /* --- PRIVATE FUNCTIONS ---------------------------------------------------- */
@@ -183,7 +183,7 @@ int lgw_fpga_reg_w(uint16_t register_id, int32_t reg_value) {
     }
 
     /* check if SPI is initialised */
-    if (lgw_spi_target == NULL) {
+    if (lgw_spi_target0 == NULL) {
         DEBUG_MSG("ERROR: CONCENTRATOR UNCONNECTED\n");
         return LGW_REG_ERROR;
     }
@@ -197,7 +197,7 @@ int lgw_fpga_reg_w(uint16_t register_id, int32_t reg_value) {
         return LGW_REG_ERROR;
     }
 
-    spi_stat += reg_w_align32(lgw_spi_target, LGW_SPI_MUX_MODE1, LGW_SPI_MUX_TARGET_FPGA, r, reg_value);
+    spi_stat += reg_w_align32(lgw_spi_target0, LGW_SPI_MUX_MODE1, LGW_SPI_MUX_TARGET_FPGA, r, reg_value);
 
     if (spi_stat != LGW_SPI_SUCCESS) {
         DEBUG_MSG("ERROR: SPI ERROR DURING REGISTER WRITE\n");
@@ -222,7 +222,7 @@ int lgw_fpga_reg_r(uint16_t register_id, int32_t *reg_value) {
     }
 
     /* check if SPI is initialised */
-    if (lgw_spi_target == NULL) {
+    if (lgw_spi_target0 == NULL) {
         DEBUG_MSG("ERROR: CONCENTRATOR UNCONNECTED\n");
         return LGW_REG_ERROR;
     }
@@ -230,7 +230,7 @@ int lgw_fpga_reg_r(uint16_t register_id, int32_t *reg_value) {
     /* get register struct from the struct array */
     r = fpga_regs[register_id];
 
-    spi_stat += reg_r_align32(lgw_spi_target, LGW_SPI_MUX_MODE1, LGW_SPI_MUX_TARGET_FPGA, r, reg_value);
+    spi_stat += reg_r_align32(lgw_spi_target0, LGW_SPI_MUX_MODE1, LGW_SPI_MUX_TARGET_FPGA, r, reg_value);
 
     if (spi_stat != LGW_SPI_SUCCESS) {
         DEBUG_MSG("ERROR: SPI ERROR DURING REGISTER WRITE\n");
@@ -259,7 +259,7 @@ int lgw_fpga_reg_wb(uint16_t register_id, uint8_t *data, uint16_t size) {
     }
 
     /* check if SPI is initialised */
-    if (lgw_spi_target == NULL) {
+    if (lgw_spi_target0 == NULL) {
         DEBUG_MSG("ERROR: CONCENTRATOR UNCONNECTED\n");
         return LGW_REG_ERROR;
     }
@@ -274,7 +274,7 @@ int lgw_fpga_reg_wb(uint16_t register_id, uint8_t *data, uint16_t size) {
     }
 
     /* do the burst write */
-    spi_stat += lgw_spi_wb(lgw_spi_target, LGW_SPI_MUX_MODE1, LGW_SPI_MUX_TARGET_FPGA, r.addr, data, size);
+    spi_stat += lgw_spi_wb(lgw_spi_target0, LGW_SPI_MUX_MODE1, LGW_SPI_MUX_TARGET_FPGA, r.addr, data, size);
 
     if (spi_stat != LGW_SPI_SUCCESS) {
         DEBUG_MSG("ERROR: SPI ERROR DURING REGISTER BURST WRITE\n");
@@ -303,7 +303,7 @@ int lgw_fpga_reg_rb(uint16_t register_id, uint8_t *data, uint16_t size) {
     }
 
     /* check if SPI is initialised */
-    if (lgw_spi_target == NULL) {
+    if (lgw_spi_target0 == NULL) {
         DEBUG_MSG("ERROR: CONCENTRATOR UNCONNECTED\n");
         return LGW_REG_ERROR;
     }
@@ -312,7 +312,7 @@ int lgw_fpga_reg_rb(uint16_t register_id, uint8_t *data, uint16_t size) {
     r = fpga_regs[register_id];
 
     /* do the burst read */
-    spi_stat += lgw_spi_rb(lgw_spi_target, LGW_SPI_MUX_MODE1, LGW_SPI_MUX_TARGET_FPGA, r.addr, data, size);
+    spi_stat += lgw_spi_rb(lgw_spi_target0, LGW_SPI_MUX_MODE1, LGW_SPI_MUX_TARGET_FPGA, r.addr, data, size);
 
     if (spi_stat != LGW_SPI_SUCCESS) {
         DEBUG_MSG("ERROR: SPI ERROR DURING REGISTER BURST READ\n");

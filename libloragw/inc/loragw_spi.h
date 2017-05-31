@@ -55,7 +55,7 @@ Maintainer: Sylvain Miermont
 @return status of register operation (LGW_SPI_SUCCESS/LGW_SPI_ERROR)
 */
 
-int lgw_spi_open(void **spi_target_ptr);
+int lgw_spi_open(const char* path, void **spi_target_ptr);
 
 /**
 @brief LoRa concentrator SPI close

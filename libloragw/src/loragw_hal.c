@@ -684,7 +684,7 @@ int lgw_start(void) {
 
     reg_stat = lgw_connect(false, rf_tx_notch_freq[rf_tx_enable[1]?1:0]);
     if (reg_stat == LGW_REG_ERROR) {
-        DEBUG_MSG("ERROR: FAIL TO CONNECT BOARD\n");
+        fprintf(stderr, "ERROR: lgw_connect() failed\n");
         return LGW_HAL_ERROR;
     }
 
@@ -706,12 +706,12 @@ int lgw_start(void) {
     /* setup the radios */
     err = lgw_setup_sx125x(0, rf_clkout, rf_enable[0], rf_radio_type[0], rf_rx_freq[0]);
     if (err != 0) {
-        DEBUG_MSG("ERROR: Failed to setup sx125x radio for RF chain 0\n");
+        fprintf(stderr,"ERROR: Failed to setup sx125x radio for RF chain 0\n");
         return LGW_HAL_ERROR;
     }
     err = lgw_setup_sx125x(1, rf_clkout, rf_enable[1], rf_radio_type[1], rf_rx_freq[1]);
     if (err != 0) {
-        DEBUG_MSG("ERROR: Failed to setup sx125x radio for RF chain 0\n");
+        fprintf(stderr,"ERROR: Failed to setup sx125x radio for RF chain 0\n");
         return LGW_HAL_ERROR;
     }
 
@@ -725,7 +725,7 @@ int lgw_start(void) {
         lgw_reg_w(LGW_CLK32M_EN, 1);
         i = lbt_setup();
         if (i != LGW_LBT_SUCCESS) {
-            DEBUG_MSG("ERROR: lbt_setup() did not return SUCCESS\n");
+            fprintf(stderr,"ERROR: lbt_setup() did not return SUCCESS\n");
             return LGW_HAL_ERROR;
         }
 
@@ -733,7 +733,7 @@ int lgw_start(void) {
         lgw_reg_w(LGW_CLK32M_EN, 0);
         i = lbt_start();
         if (i != LGW_LBT_SUCCESS) {
-            DEBUG_MSG("ERROR: lbt_start() did not return SUCCESS\n");
+            fprintf(stderr,"ERROR: lbt_start() did not return SUCCESS\n");
             return LGW_HAL_ERROR;
         }
     }
@@ -788,6 +788,7 @@ int lgw_start(void) {
         printf("ERROR: Version of calibration firmware not expected, actual:%d expected:%d\n", fw_version, FW_VERSION_CAL);
         return -1;
     }
+    printf("Version of calibration firmware actual:%d expected:%d\n", fw_version, FW_VERSION_CAL);
 
     lgw_reg_w(LGW_PAGE_REG, 3); /* Calibration will start on this condition as soon as MCU can talk to concentrator registers */
     lgw_reg_w(LGW_EMERGENCY_FORCE_HOST_CTRL, 0); /* Give control of concentrator registers to MCU */
@@ -811,7 +812,7 @@ int lgw_start(void) {
         bit 6: radio B TX DC Offset correction successful
     */
     if ((cal_status & 0x81) != 0x81) {
-        DEBUG_PRINTF("ERROR: CALIBRATION FAILURE (STATUS = %u)\n", cal_status);
+        fprintf(stderr,"ERROR: CALIBRATION FAILURE (STATUS = %u)\n", cal_status);
         return LGW_HAL_ERROR;
     } else {
         DEBUG_PRINTF("Note: calibration finished (status = %u)\n", cal_status);
@@ -856,7 +857,7 @@ int lgw_start(void) {
 
     /* Sanity check for RX frequency */
     if (rf_rx_freq[0] == 0) {
-        DEBUG_MSG("ERROR: wrong configuration, rf_rx_freq[0] is not set\n");
+        fprintf(stderr,"ERROR: wrong configuration, rf_rx_freq[0] is not set\n");
         return LGW_HAL_ERROR;
     }
 
@@ -912,7 +913,7 @@ int lgw_start(void) {
             case BW_250KHZ: lgw_reg_w(LGW_MBWSSF_MODEM_BW, 1); break;
             case BW_500KHZ: lgw_reg_w(LGW_MBWSSF_MODEM_BW, 2); break;
             default:
-                DEBUG_PRINTF("ERROR: UNEXPECTED VALUE %d IN SWITCH STATEMENT\n", lora_rx_bw);
+                fprintf(stderr,"ERROR: UNEXPECTED VALUE %d IN SWITCH STATEMENT\n", lora_rx_bw);
                 return LGW_HAL_ERROR;
         }
         switch(lora_rx_sf) {
@@ -923,7 +924,7 @@ int lgw_start(void) {
             case DR_LORA_SF11: lgw_reg_w(LGW_MBWSSF_RATE_SF, 11); break;
             case DR_LORA_SF12: lgw_reg_w(LGW_MBWSSF_RATE_SF, 12); break;
             default:
-                DEBUG_PRINTF("ERROR: UNEXPECTED VALUE %d IN SWITCH STATEMENT\n", lora_rx_sf);
+                fprintf(stderr,"ERROR: UNEXPECTED VALUE %d IN SWITCH STATEMENT\n", lora_rx_sf);
                 return LGW_HAL_ERROR;
         }
         lgw_reg_w(LGW_MBWSSF_PPM_OFFSET, lora_rx_ppm_offset); /* default 0 */
@@ -967,14 +968,14 @@ int lgw_start(void) {
     lgw_reg_r(LGW_DBG_AGC_MCU_RAM_DATA, &read_val);
     fw_version = (uint8_t)read_val;
     if (fw_version != FW_VERSION_AGC) {
-        DEBUG_PRINTF("ERROR: Version of AGC firmware not expected, actual:%d expected:%d\n", fw_version, FW_VERSION_AGC);
+        fprintf(stderr,"ERROR: Version of AGC firmware not expected, actual:%d expected:%d\n", fw_version, FW_VERSION_AGC);
         return LGW_HAL_ERROR;
     }
     lgw_reg_w(LGW_DBG_ARB_MCU_RAM_ADDR, FW_VERSION_ADDR);
     lgw_reg_r(LGW_DBG_ARB_MCU_RAM_DATA, &read_val);
     fw_version = (uint8_t)read_val;
     if (fw_version != FW_VERSION_ARB) {
-        DEBUG_PRINTF("ERROR: Version of arbiter firmware not expected, actual:%d expected:%d\n", fw_version, FW_VERSION_ARB);
+        fprintf(stderr,"ERROR: Version of arbiter firmware not expected, actual:%d expected:%d\n", fw_version, FW_VERSION_ARB);
         return LGW_HAL_ERROR;
     }
 
@@ -983,7 +984,7 @@ int lgw_start(void) {
 
     lgw_reg_r(LGW_MCU_AGC_STATUS, &read_val);
     if (read_val != 0x10) {
-        DEBUG_PRINTF("ERROR: AGC FIRMWARE INITIALIZATION FAILURE, STATUS 0x%02X\n", (uint8_t)read_val);
+        fprintf(stderr,"ERROR: AGC FIRMWARE INITIALIZATION FAILURE, STATUS 0x%02X\n", (uint8_t)read_val);
         return LGW_HAL_ERROR;
     }
 
@@ -996,7 +997,7 @@ int lgw_start(void) {
         wait_ms(1);
         lgw_reg_r(LGW_MCU_AGC_STATUS, &read_val);
         if (read_val != (0x30 + i)) {
-            DEBUG_PRINTF("ERROR: AGC FIRMWARE INITIALIZATION FAILURE, STATUS 0x%02X\n", (uint8_t)read_val);
+            fprintf(stderr,"ERROR: AGC FIRMWARE INITIALIZATION FAILURE, STATUS 0x%02X\n", (uint8_t)read_val);
             return LGW_HAL_ERROR;
         }
     }
@@ -1009,7 +1010,7 @@ int lgw_start(void) {
         wait_ms(1);
         lgw_reg_r(LGW_MCU_AGC_STATUS, &read_val);
         if (read_val != 0x30) {
-            DEBUG_PRINTF("ERROR: AGC FIRMWARE INITIALIZATION FAILURE, STATUS 0x%02X\n", (uint8_t)read_val);
+            fprintf(stderr,"ERROR: AGC FIRMWARE INITIALIZATION FAILURE, STATUS 0x%02X\n", (uint8_t)read_val);
             return LGW_HAL_ERROR;
         }
     }
@@ -1021,7 +1022,7 @@ int lgw_start(void) {
     wait_ms(1);
     lgw_reg_r(LGW_MCU_AGC_STATUS, &read_val);
     if (read_val != 0x33) {
-        DEBUG_PRINTF("ERROR: AGC FIRMWARE INITIALIZATION FAILURE, STATUS 0x%02X\n", (uint8_t)read_val);
+        fprintf(stderr,"ERROR: AGC FIRMWARE INITIALIZATION FAILURE, STATUS 0x%02X\n", (uint8_t)read_val);
         return LGW_HAL_ERROR;
     }
 
@@ -1032,7 +1033,7 @@ int lgw_start(void) {
     wait_ms(1);
     lgw_reg_r(LGW_MCU_AGC_STATUS, &read_val);
     if (read_val != 0x30) {
-        DEBUG_PRINTF("ERROR: AGC FIRMWARE INITIALIZATION FAILURE, STATUS 0x%02X\n", (uint8_t)read_val);
+        fprintf(stderr,"ERROR: AGC FIRMWARE INITIALIZATION FAILURE, STATUS 0x%02X\n", (uint8_t)read_val);
         return LGW_HAL_ERROR;
     }
 
@@ -1044,7 +1045,7 @@ int lgw_start(void) {
     DEBUG_MSG("Info: putting back original RADIO_SELECT value\n");
     lgw_reg_r(LGW_MCU_AGC_STATUS, &read_val);
     if (read_val != 0x40) {
-        DEBUG_PRINTF("ERROR: AGC FIRMWARE INITIALIZATION FAILURE, STATUS 0x%02X\n", (uint8_t)read_val);
+        fprintf(stderr,"ERROR: AGC FIRMWARE INITIALIZATION FAILURE, STATUS 0x%02X\n", (uint8_t)read_val);
         return LGW_HAL_ERROR;
     }
 
