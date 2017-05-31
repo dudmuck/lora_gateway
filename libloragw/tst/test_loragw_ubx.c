@@ -51,6 +51,8 @@ static void sig_handler(int sigio);
 static void gps_process_sync(void);
 static void gps_process_coords(void);
 
+uint8_t csn = 0;    // dual sx1301, 0=first
+
 /* -------------------------------------------------------------------------- */
 /* --- PRIVATE FUNCTIONS DEFINITION ----------------------------------------- */
 
@@ -80,7 +82,7 @@ static void gps_process_sync(void) {
     }
 
     /* get timestamp for synchronization */
-    i = lgw_get_trigcnt(&ppm_tstamp);
+    i = lgw_get_trigcnt(csn, &ppm_tstamp);
     if (i != LGW_HAL_SUCCESS) {
         printf("    Failed to read timestamp, synchronization impossible.\n");
         return;
@@ -159,7 +161,7 @@ int main()
 
     /* Intro message and library information */
     printf("Beginning of test for loragw_gps.c\n");
-    printf("*** Library version information ***\n%s\n***\n", lgw_version_info());
+    printf("*** Library version information ***\n%s\n***\n", lgw_version_info(csn));
 
     /* Open and configure GPS */
 #ifdef __ARM_ARCH_5TEJ__
@@ -177,7 +179,7 @@ int main()
     memset(&boardconf, 0, sizeof(boardconf));
     boardconf.lorawan_public = true;
     boardconf.clksrc = 1;
-    lgw_board_setconf(boardconf);
+    lgw_board_setconf(csn, boardconf);
 
     /* RF config */
     memset(&rfconf, 0, sizeof(rfconf));
@@ -186,9 +188,9 @@ int main()
     rfconf.rssi_offset = 0.0;
     rfconf.type = LGW_RADIO_TYPE_SX1257;
     rfconf.tx_enable = true;
-    lgw_rxrf_setconf(0, rfconf);
+    lgw_rxrf_setconf(csn, 0, rfconf);
 
-    lgw_start();
+    lgw_start(csn);
 
     /* initialize some variables before loop */
     memset(serial_buff, 0, sizeof serial_buff);
@@ -282,7 +284,7 @@ int main()
     /* clean up before leaving */
     if (exit_sig == 1) {
         lgw_gps_disable(gps_tty_dev);
-        lgw_stop();
+        lgw_stop(csn);
     }
 
     printf("\nEnd of test for loragw_gps.c\n");

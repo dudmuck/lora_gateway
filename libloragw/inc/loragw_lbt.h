@@ -45,13 +45,13 @@ int lbt_setconf(struct lgw_conf_lbt_s * conf);
 @brief Configure the concentrator for LBT feature
 @return LGW_LBT_ERROR id the operation failed, LGW_LBT_SUCCESS else
 */
-int lbt_setup(void);
+int lbt_setup(uint8_t csn);
 
 /**
 @brief Start the LBT FSM
 @return LGW_LBT_ERROR id the operation failed, LGW_LBT_SUCCESS else
 */
-int lbt_start(void);
+int lbt_start(uint8_t csn);
 
 /**
 @brief Configure the concentrator for LBT feature

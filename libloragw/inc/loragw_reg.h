@@ -396,26 +396,26 @@ concentrator, or if we also want to reset it and configure the FPGA (if present)
 used with SX1301AP2 reference design).
 @return status of register operation (LGW_REG_SUCCESS/LGW_REG_ERROR)
 */
-int lgw_connect(bool spi_only, uint32_t tx_notch_freq);
+int lgw_connect(uint8_t csn, bool spi_only, uint32_t tx_notch_freq);
 
 /**
 @brief Disconnect LoRa concentrator by closing SPI link
 @return status of register operation (LGW_REG_SUCCESS/LGW_REG_ERROR)
 */
-int lgw_disconnect(void);
+int lgw_disconnect(uint8_t csn);
 
 /**
 @brief Use the soft-reset register to put the concentrator in initial state
 @return status of register operation (LGW_REG_SUCCESS/LGW_REG_ERROR)
 */
-int lgw_soft_reset(void);
+int lgw_soft_reset(uint8_t csn);
 
 /**
 @brief Check if the registers are ok, send diagnostics to stdio/stderr/file
 @param f file descriptor to to which the check result will be written
 @return status of register operation (LGW_REG_SUCCESS/LGW_REG_ERROR)
 */
-int lgw_reg_check(FILE *f);
+int lgw_reg_check(uint8_t csn, FILE *f);
 
 /**
 @brief LoRa concentrator register write
@@ -423,7 +423,7 @@ int lgw_reg_check(FILE *f);
 @param reg_value signed value to write to the register (for u32, use cast)
 @return status of register operation (LGW_REG_SUCCESS/LGW_REG_ERROR)
 */
-int lgw_reg_w(uint16_t register_id, int32_t reg_value);
+int lgw_reg_w(uint8_t csn, uint16_t register_id, int32_t reg_value);
 
 /**
 @brief LoRa concentrator register read
@@ -431,7 +431,7 @@ int lgw_reg_w(uint16_t register_id, int32_t reg_value);
 @param reg_value pointer to a variable where to write register read value
 @return status of register operation (LGW_REG_SUCCESS/LGW_REG_ERROR)
 */
-int lgw_reg_r(uint16_t register_id, int32_t *reg_value);
+int lgw_reg_r(uint8_t csn, uint16_t register_id, int32_t *reg_value);
 
 /**
 @brief LoRa concentrator register burst write
@@ -440,7 +440,7 @@ int lgw_reg_r(uint16_t register_id, int32_t *reg_value);
 @param size size of the transfer, in byte(s)
 @return status of register operation (LGW_REG_SUCCESS/LGW_REG_ERROR)
 */
-int lgw_reg_wb(uint16_t register_id, uint8_t *data, uint16_t size);
+int lgw_reg_wb(uint8_t csn, uint16_t register_id, uint8_t *data, uint16_t size);
 
 /**
 @brief LoRa concentrator register burst read
@@ -449,7 +449,7 @@ int lgw_reg_wb(uint16_t register_id, uint8_t *data, uint16_t size);
 @param size size of the transfer, in byte(s)
 @return status of register operation (LGW_REG_SUCCESS/LGW_REG_ERROR)
 */
-int lgw_reg_rb(uint16_t register_id, uint8_t *data, uint16_t size);
+int lgw_reg_rb(uint8_t csn, uint16_t register_id, uint8_t *data, uint16_t size);
 
 
 #endif

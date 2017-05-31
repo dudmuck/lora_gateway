@@ -3,7 +3,7 @@ set (DEBUG_AUX      0)
 set (DEBUG_SPI      0)
 set (DEBUG_REG      0)
 set (DEBUG_HAL      0)
-set (DEBUG_GPS      1)
+set (DEBUG_GPS      0)
 set (DEBUG_GPIO     0)
 set (DEBUG_LBT      0)
 
@@ -30,6 +30,7 @@ set (PROJECT1_SRCS
     ${PROJECT_SOURCE_DIR}/loragw_fpga.c
     ${PROJECT_SOURCE_DIR}/loragw_spi.native.c
     ${PROJECT_SOURCE_DIR}/loragw_radio.c
+    ${PROJECT_SOURCE_DIR}/loragw_gps.c
 )
 endif (SHM)
 

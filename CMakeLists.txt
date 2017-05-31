@@ -31,6 +31,17 @@ find_library(P_LIB pthread)
 add_executable(util_pkt_logger ${util_pkt_logger_srcs})
 add_dependencies(util_pkt_logger loragw)
 
+
+list(APPEND reg_test_srcs
+    ${PROJECT_SOURCE_DIR}/libloragw/tst/test_loragw_reg.c
+)
+
+add_executable(test_loragw_reg ${reg_test_srcs})
+add_dependencies(test_loragw_reg loragw)
+target_link_libraries(test_loragw_reg
+    ${PROJECT_SOURCE_DIR}/libloragw/libloragw.a
+)
+
 if (UBX)
     list(APPEND test_loragw_ubx_srcs
         ${PROJECT_SOURCE_DIR}/libloragw/tst/test_loragw_ubx.c

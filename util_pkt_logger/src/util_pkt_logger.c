@@ -383,6 +383,7 @@ void usage(void) {
 
 int main(int argc, char **argv)
 {
+    uint8_t csn = 0;
     int i, j; /* loop and temporary variables */
     struct timespec sleep_time = {0, 3000000}; /* 3 ms */
 
@@ -470,9 +471,16 @@ int main(int argc, char **argv)
     /* starting the concentrator */
     i = lgw_start(0);
     if (i == LGW_HAL_SUCCESS) {
-        MSG("INFO: concentrator started, packet can now be received\n");
+        MSG("INFO: concentrator0 started, packet can now be received\n");
     } else {
-        MSG("ERROR: lgw_start() failed\n");
+        MSG("ERROR: lgw_start(0) failed\n");
+        return EXIT_FAILURE;
+    }
+    i = lgw_start(1);
+    if (i == LGW_HAL_SUCCESS) {
+        MSG("INFO: concentrator1 started, packet can now be received\n");
+    } else {
+        MSG("ERROR: lgw_start(1) failed\n");
         return EXIT_FAILURE;
     }
 
@@ -486,14 +494,18 @@ int main(int argc, char **argv)
     /* main loop */
     while ((quit_sig != 1) && (exit_sig != 1)) {
         uint32_t trig_cnt;
+        if (csn == 0)
+            csn = 1;
+        else
+            csn = 0;
         /* fetch packets */
-        nb_pkt = lgw_receive(0, ARRAY_SIZE(rxpkt), rxpkt);
+        nb_pkt = lgw_receive(csn, ARRAY_SIZE(rxpkt), rxpkt);
         if (nb_pkt == LGW_HAL_ERROR) {
             MSG("ERROR: failed packet fetch, exiting\n");
             return EXIT_FAILURE;
         } else if (nb_pkt == 0) {
             clock_nanosleep(CLOCK_MONOTONIC, 0, &sleep_time, NULL); /* wait a short time if no packets */
-            i = lgw_get_trigcnt(0, &trig_cnt);
+            i = lgw_get_trigcnt(csn, &trig_cnt);
             if (i != LGW_HAL_SUCCESS)
                 printf("lgw_get_trigcnt fail\n");
             /*if (i == LGW_HAL_SUCCESS)

@@ -54,9 +54,6 @@ Maintainer: Michael Coracin
 /* -------------------------------------------------------------------------- */
 /* --- SHARED VARIABLES ---------------------------------------------------- */
 
-extern void *lgw_spi_target; /*! generic pointer to the SPI device */
-extern uint8_t lgw_spi_mux_mode; /*! current SPI mux mode used */
-
 /* -------------------------------------------------------------------------- */
 /* --- PRIVATE VARIABLES ---------------------------------------------------- */
 
@@ -78,7 +75,8 @@ bool is_equal_freq(uint32_t a, uint32_t b);
 /* --- PUBLIC FUNCTIONS DEFINITION ------------------------------------------ */
 
 #ifndef DISABLE_FPGA
-int lbt_setconf(struct lgw_conf_lbt_s * conf) {
+int lbt_setconf(struct lgw_conf_lbt_s * conf)
+{
     int i;
 
     /* Check input parameters */
@@ -111,13 +109,14 @@ int lbt_setconf(struct lgw_conf_lbt_s * conf) {
 /* ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
 
 #ifndef DISABLE_FPGA
-int lbt_setup(void) {
+int lbt_setup(uint8_t csn)
+{
     int x, i;
     int32_t val;
     uint32_t freq_offset;
 
     /* Check if LBT feature is supported by FPGA */
-    x = lgw_fpga_reg_r(LGW_FPGA_FEATURE, &val);
+    x = lgw_fpga_reg_r(csn, LGW_FPGA_FEATURE, &val);
     if (x != LGW_REG_SUCCESS) {
         DEBUG_MSG("ERROR: Failed to read FPGA Features register\n");
         return LGW_LBT_ERROR;
@@ -128,7 +127,7 @@ int lbt_setup(void) {
     }
 
     /* Get FPGA lowest frequency for LBT channels */
-    x = lgw_fpga_reg_r(LGW_FPGA_LBT_INITIAL_FREQ, &val);
+    x = lgw_fpga_reg_r(csn, LGW_FPGA_LBT_INITIAL_FREQ, &val);
     if (x != LGW_REG_SUCCESS) {
         DEBUG_MSG("ERROR: Failed to read LBT initial frequency from FPGA\n");
         return LGW_LBT_ERROR;
@@ -146,7 +145,7 @@ int lbt_setup(void) {
     }
 
     /* Configure SX127x for FSK */
-    x = lgw_setup_sx127x(lbt_start_freq, MOD_FSK, LGW_SX127X_RXBW_100K_HZ, lbt_rssi_offset_dB); /* 200KHz LBT channels */
+    x = lgw_setup_sx127x(csn, lbt_start_freq, MOD_FSK, LGW_SX127X_RXBW_100K_HZ, lbt_rssi_offset_dB); /* 200KHz LBT channels */
     if (x != LGW_REG_SUCCESS) {
         DEBUG_MSG("ERROR: Failed to configure SX127x for LBT\n");
         return LGW_LBT_ERROR;
@@ -154,7 +153,7 @@ int lbt_setup(void) {
 
     /* Configure FPGA for LBT */
     val = -2*lbt_rssi_target_dBm; /* Convert RSSI target in dBm to FPGA register format */
-    x = lgw_fpga_reg_w(LGW_FPGA_RSSI_TARGET, val);
+    x = lgw_fpga_reg_w(csn, LGW_FPGA_RSSI_TARGET, val);
     if (x != LGW_REG_SUCCESS) {
         DEBUG_MSG("ERROR: Failed to configure FPGA for LBT\n");
         return LGW_LBT_ERROR;
@@ -177,13 +176,13 @@ int lbt_setup(void) {
         }
         /* Configure */
         freq_offset = (lbt_channel_cfg[i].freq_hz - lbt_start_freq) / 100E3; /* 100kHz unit */
-        x = lgw_fpga_reg_w(LGW_FPGA_LBT_CH0_FREQ_OFFSET+i, (int32_t)freq_offset);
+        x = lgw_fpga_reg_w(csn, LGW_FPGA_LBT_CH0_FREQ_OFFSET+i, (int32_t)freq_offset);
         if (x != LGW_REG_SUCCESS) {
             DEBUG_PRINTF("ERROR: Failed to configure FPGA for LBT channel %d (freq offset)\n", i);
             return LGW_LBT_ERROR;
         }
         if (lbt_channel_cfg[i].freq_hz == 5000) { /* configured to 128 by default */
-            x = lgw_fpga_reg_w(LGW_FPGA_LBT_SCAN_TIME_CH0+i, 1);
+            x = lgw_fpga_reg_w(csn, LGW_FPGA_LBT_SCAN_TIME_CH0+i, 1);
             if (x != LGW_REG_SUCCESS) {
                 DEBUG_PRINTF("ERROR: Failed to configure FPGA for LBT channel %d (freq offset)\n", i);
                 return LGW_LBT_ERROR;
@@ -209,10 +208,10 @@ int lbt_setup(void) {
 /* ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
 
 #ifndef DISABLE_FPGA
-int lbt_start(void) {
+int lbt_start(uint8_t csn) {
     int x;
 
-    x = lgw_fpga_reg_w(LGW_FPGA_CTRL_FEATURE_START, 1);
+    x = lgw_fpga_reg_w(csn, LGW_FPGA_CTRL_FEATURE_START, 1);
     if (x != LGW_REG_SUCCESS) {
         DEBUG_MSG("ERROR: Failed to start LBT FSM\n");
         return LGW_LBT_ERROR;
@@ -225,7 +224,8 @@ int lbt_start(void) {
 /* ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
 
 #ifndef DISABLE_FPGA
-int lbt_is_channel_free(uint8_t csn, struct lgw_pkt_tx_s * pkt_data, bool * tx_allowed) {
+int lbt_is_channel_free(uint8_t csn, struct lgw_pkt_tx_s * pkt_data, bool * tx_allowed)
+{
     int i;
     int32_t val;
     uint32_t tx_start_time = 0;
@@ -313,13 +313,13 @@ int lbt_is_channel_free(uint8_t csn, struct lgw_pkt_tx_s * pkt_data, bool * tx_a
 
         /* Get last time when selected channel was free */
         if ((lbt_channel_decod_1 >= 0) && (lbt_channel_decod_2 >= 0)) {
-            lgw_fpga_reg_w(LGW_FPGA_LBT_TIMESTAMP_SELECT_CH, (int32_t)lbt_channel_decod_1);
-            lgw_fpga_reg_r(LGW_FPGA_LBT_TIMESTAMP_CH, &val);
+            lgw_fpga_reg_w(csn, LGW_FPGA_LBT_TIMESTAMP_SELECT_CH, (int32_t)lbt_channel_decod_1);
+            lgw_fpga_reg_r(csn, LGW_FPGA_LBT_TIMESTAMP_CH, &val);
             lbt_time = lbt_time1 = (uint32_t)(val & 0x0000FFFF) * 256; /* 16bits (1LSB = 256µs) */
 
             if (lbt_channel_decod_1 != lbt_channel_decod_2 ) {
-                lgw_fpga_reg_w(LGW_FPGA_LBT_TIMESTAMP_SELECT_CH, (int32_t)lbt_channel_decod_2);
-                lgw_fpga_reg_r(LGW_FPGA_LBT_TIMESTAMP_CH, &val);
+                lgw_fpga_reg_w(csn, LGW_FPGA_LBT_TIMESTAMP_SELECT_CH, (int32_t)lbt_channel_decod_2);
+                lgw_fpga_reg_r(csn, LGW_FPGA_LBT_TIMESTAMP_CH, &val);
                 lbt_time2 = (uint32_t)(val & 0x0000FFFF) * 256; /* 16bits (1LSB = 256µs) */
 
                 if (lbt_time2 < lbt_time1) {
@@ -373,7 +373,8 @@ int lbt_is_channel_free(uint8_t csn, struct lgw_pkt_tx_s * pkt_data, bool * tx_a
 /* ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
 
 #ifndef DISABLE_FPGA
-bool lbt_is_enabled(void) {
+bool lbt_is_enabled(void)
+{
     return lbt_enable;
 }
 #endif /* DISABLE_FPGA */
@@ -384,7 +385,8 @@ bool lbt_is_enabled(void) {
 /* As given frequencies have been converted from float to integer, some aliasing
 issues can appear, so we can't simply check for equality, but have to take some
 margin */
-bool is_equal_freq(uint32_t a, uint32_t b) {
+bool is_equal_freq(uint32_t a, uint32_t b)
+{
     int64_t diff;
     int64_t a64 = (int64_t)a;
     int64_t b64 = (int64_t)b;

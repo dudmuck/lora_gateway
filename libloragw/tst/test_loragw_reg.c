@@ -27,7 +27,8 @@ Maintainer: Sylvain Miermont
 
 #define BURST_TEST_LENGTH    8192
 
-int main()
+void
+test(uint8_t csn)
 {
     int32_t read_value, test_value;
     uint16_t lfsr;
@@ -35,9 +36,6 @@ int main()
     uint8_t burst_buffin[BURST_TEST_LENGTH];
     int i;
 
-    printf("Beginning of test for loragw_reg.c\n");
-
-    lgw_connect(false, 129E3);
     /* 2 SPI transactions:
     -> 0x80 0x00        <- 0x00 0x00        forcing page 0
     -> 0x01 0x00        <- 0x00 0x64        checking version
@@ -45,16 +43,16 @@ int main()
 
     /* --- READ TEST --- */
 
-    lgw_reg_w(LGW_SOFT_RESET, 1);
-    lgw_reg_check(stdout);
+    lgw_reg_w(csn, LGW_SOFT_RESET, 1);
+    lgw_reg_check(csn, stdout);
 
     /* --- READ/WRITE COHERENCY TEST --- */
 
     /* 8b unsigned */
     test_value = 197; /* 11000101b */
-    lgw_reg_w(LGW_IMPLICIT_PAYLOAD_LENGHT, test_value);
-    lgw_reg_r(LGW_IMPLICIT_PAYLOAD_LENGHT, &read_value);
-    printf("IMPLICIT_PAYLOAD_LENGHT = %d (should be %d)\n", read_value, test_value);
+    lgw_reg_w(csn, LGW_IMPLICIT_PAYLOAD_LENGHT, test_value);
+    lgw_reg_r(csn, LGW_IMPLICIT_PAYLOAD_LENGHT, &read_value);
+    printf("%u) IMPLICIT_PAYLOAD_LENGHT = %d (should be %d)\n", csn, read_value, test_value);
 
     /* 8b signed */
     /* NO SUCH REG AVAILABLE */
@@ -66,9 +64,9 @@ int main()
 
     /* less than 8b, with offset, unsigned */
     test_value = 11; /* 1011b */
-    lgw_reg_w(LGW_FRAME_SYNCH_PEAK2_POS, test_value);
-    lgw_reg_r(LGW_FRAME_SYNCH_PEAK2_POS, &read_value);
-    printf("FRAME_SYNCH_PEAK2_POS = %d (should be %d)\n", read_value, test_value);
+    lgw_reg_w(csn, LGW_FRAME_SYNCH_PEAK2_POS, test_value);
+    lgw_reg_r(csn, LGW_FRAME_SYNCH_PEAK2_POS, &read_value);
+    printf("%u) FRAME_SYNCH_PEAK2_POS = %d (should be %d)\n", csn, read_value, test_value);
 
     /* less than 8b, with offset, signed */
     /* NO SUCH REG AVAILABLE */
@@ -80,9 +78,9 @@ int main()
 
     /* 16b unsigned */
     test_value = 49253; /* 11000000 01100101b */
-    lgw_reg_w(LGW_PREAMBLE_SYMB1_NB, test_value);
-    lgw_reg_r(LGW_PREAMBLE_SYMB1_NB, &read_value);
-    printf("PREAMBLE_SYMB1_NB = %d (should be %d)\n", read_value, test_value);
+    lgw_reg_w(csn, LGW_PREAMBLE_SYMB1_NB, test_value);
+    lgw_reg_r(csn, LGW_PREAMBLE_SYMB1_NB, &read_value);
+    printf("%u) PREAMBLE_SYMB1_NB = %d (should be %d)\n", csn, read_value, test_value);
 
     /* 16b signed */
     /* NO SUCH REG AVAILABLE */
@@ -94,15 +92,15 @@ int main()
 
     /* between 8b and 16b, unsigned */
     test_value = 3173; /* 1100 01100101b */
-    lgw_reg_w(LGW_ADJUST_MODEM_START_OFFSET_SF12_RDX4, test_value);
-    lgw_reg_r(LGW_ADJUST_MODEM_START_OFFSET_SF12_RDX4, &read_value);
-    printf("ADJUST_MODEM_START_OFFSET_SF12_RDX4 = %d (should be %d)\n", read_value, test_value);
+    lgw_reg_w(csn, LGW_ADJUST_MODEM_START_OFFSET_SF12_RDX4, test_value);
+    lgw_reg_r(csn, LGW_ADJUST_MODEM_START_OFFSET_SF12_RDX4, &read_value);
+    printf("%u) ADJUST_MODEM_START_OFFSET_SF12_RDX4 = %d (should be %d)\n", csn, read_value, test_value);
 
     /* between 8b and 16b, signed */
     test_value = -1947; /* 11000 01100101b */
-    lgw_reg_w(LGW_IF_FREQ_1, test_value);
-    lgw_reg_r(LGW_IF_FREQ_1, &read_value);
-    printf("IF_FREQ_1 = %d (should be %d)\n", read_value, test_value);
+    lgw_reg_w(csn, LGW_IF_FREQ_1, test_value);
+    lgw_reg_r(csn, LGW_IF_FREQ_1, &read_value);
+    printf("%u) IF_FREQ_1 = %d (should be %d)\n", csn, read_value, test_value);
 
     /* --- BURST WRITE AND READ TEST --- */
 
@@ -114,8 +112,8 @@ int main()
         lfsr = (lfsr & 1) ? ((lfsr >> 1) ^ 0x8679) : (lfsr >> 1);
     }
 
-    lgw_reg_wb(LGW_TX_DATA_BUF_DATA, burst_buffout, 256);
-    lgw_reg_rb(LGW_RX_DATA_BUF_DATA, burst_buffin, 256);
+    lgw_reg_wb(csn, LGW_TX_DATA_BUF_DATA, burst_buffout, 256);
+    lgw_reg_rb(csn, LGW_RX_DATA_BUF_DATA, burst_buffin, 256);
 
     /* impossible to check in software,
     RX_DATA_BUF_DATA is read-only,
@@ -123,8 +121,21 @@ int main()
     use a logic analyser */
 
     /* --- END OF TEST --- */
+}
 
-    lgw_disconnect();
+int main()
+{
+
+    printf("Beginning of test for loragw_reg.c\n");
+
+    lgw_connect(0, false, 129E3);
+    lgw_connect(1, false, 129E3);
+
+    test(0);
+    test(1);
+
+    lgw_disconnect(0);
+    lgw_disconnect(1);
     /* no SPI transaction */
 
     printf("End of test for loragw_reg.c\n");
