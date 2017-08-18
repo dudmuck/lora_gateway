@@ -15,6 +15,7 @@
 
 /* -------------------------------------------------------------------------- */
 /* --- PRIVATE MACROS ------------------------------------------------------- */
+#define RADIO_DBG
 
 #define ARRAY_SIZE(a) (sizeof(a) / sizeof((a)[0]))
 #if DEBUG_HAL == 1
@@ -28,6 +29,19 @@
     #define DEBUG_ARRAY(a,b,c)            for(a=0;a!=0;){}
     #define CHECK_NULL(a)                 if(a==NULL){return LGW_HAL_ERROR;}
 #endif
+
+#ifdef RADIO_DBG
+    #define MSG_RADIO(...) printf("[44m" __VA_ARGS__ ); \
+                    printf("[0m")
+#else
+    #define MSG_RADIO(...)
+#endif
+
+#if 0
+#define MSG_TOA(...) printf("[46m" __VA_ARGS__ ); /* 46:bg-CYAN */ \
+                    printf("[0m")
+#endif
+#define MSG_TOA(...)
 
 #define MIN_LORA_PREAMBLE   4
 #define STD_LORA_PREAMBLE   6
@@ -117,7 +131,7 @@ void roll_time_reference()
     saved_gw_start.tv_sec = shared_memory1->gw_start_ts.tv_sec;
     saved_gw_start.tv_nsec = shared_memory1->gw_start_ts.tv_nsec;
     timespec_add(&ts, &saved_gw_start, &shared_memory1->gw_start_ts);
-    printf("sx1301-rollover\n");
+    MSG_RADIO("sx1301-rollover\n");
 }
 
 void
@@ -136,7 +150,7 @@ count_us_to_timespec(uint32_t count_us, struct timespec* result)
     }
     diff = _difftimespec(*result, now);
     /* if result is earlier now, diff should be negative */
-    //printf("us_to_timspec diff:%f\n", diff);
+    //MSG_RADIO("us_to_timspec diff:%f\n", diff);
     if (diff < 0) {
         roll_time_reference();
         count_us_to_timespec(count_us, result);
@@ -182,29 +196,30 @@ _tx_to_shared(const char* caller)
     //float symbol_period_seconds;
 
     if (dl->freq_hz < RF_FREQ_LOW_LIMIT) {
-        printf("%s: bad tx freq %u\n", caller, dl->freq_hz);
+        MSG_RADIO("%s: bad tx freq %u\n", caller, dl->freq_hz);
         exit(EXIT_FAILURE);
     }
 
     if (dl->sf < 7) {
-        printf("%s: bad sf %u\n", caller, dl->sf);
+        MSG_RADIO("%s: bad sf %u\n", caller, dl->sf);
         exit(EXIT_FAILURE);
     }
 
     if (dl->bw_khz < 5) {
-        printf("%s: bad bw %u\n", caller, dl->bw_khz);
+        MSG_RADIO("%s: bad bw %u\n", caller, dl->bw_khz);
         exit(EXIT_FAILURE);
     }
 
     dl->transmitting = true;
     dl->tx_cnt++;
-    printf("gwtx at %uhz sf%dbw%u\n", dl->freq_hz, dl->sf, dl->bw_khz);
+    MSG_RADIO("gwtx at %uhz sf%dbw%u num_rxing:%u", dl->freq_hz, dl->sf, dl->bw_khz, dl->num_end_nodes_rxing);
 
     /* sleep for preamble duration */
     sleep_until_sx1301_cnt(dl->sx1301_cnt.preamble_end);
     // rx sample time should be inbetween preamble start and end time */
 
     sleep_until_sx1301_cnt(dl->sx1301_cnt.tx_done);
+    MSG_RADIO("->%u ", dl->num_end_nodes_rxing);
     dl->transmitting = false;
 
 #if 0
@@ -223,7 +238,8 @@ _tx_to_shared(const char* caller)
     dl->freq_hz = 0;
     dl->modulation = MOD_UNDEFINED;
 
-    //printf("tx-done\n");
+    MSG_RADIO("toa:%uus\n", dl->sx1301_cnt.tx_done - dl->sx1301_cnt.preamble_start);
+    //MSG_RADIO("tx-done\n");
 }
 
 bool tx_busy = false;
@@ -271,7 +287,7 @@ int lgw_board_setconf(struct lgw_conf_board_s conf)
     else
         ppg = 0x12;
 
-    printf("ppg:0x%02x\n", ppg);
+    MSG_RADIO("ppg:0x%02x\n", ppg);
     return LGW_HAL_SUCCESS;
 }
 
@@ -295,7 +311,7 @@ int lgw_rxif_setconf(uint8_t if_chain, struct lgw_conf_rxif_s conf)
         uint8_t idx = radio[conf.rf_chain].n_ifs;
         radio[conf.rf_chain].rx_freqs[idx] = radio[conf.rf_chain].center_freq + conf.freq_hz;
         radio[conf.rf_chain].bws[idx] = conf.bandwidth;
-        printf("if chain bw:%d\n", conf.bandwidth);
+        MSG_RADIO("if chain bw:%d\n", conf.bandwidth);
         radio[conf.rf_chain].drs[idx] = conf.datarate;
         radio[conf.rf_chain].if_chain_num[idx] = if_chain;
         radio[conf.rf_chain].valid[idx] = true;
@@ -350,7 +366,7 @@ int shared_memory_init()
         return LGW_HAL_ERROR;
     }
     //shared_memory1->gw_start_ts.tv_sec -= 4244; // cause early rollover
-    printf("gw_start_ts: %lu.%lu\n",
+    MSG_RADIO("gw_start_ts: %lu.%lu\n",
         shared_memory1->gw_start_ts.tv_sec,
         shared_memory1->gw_start_ts.tv_nsec
     );
@@ -376,7 +392,7 @@ int shared_memory_init()
         perror("pthread_create");
         return LGW_HAL_ERROR;
     }
-    printf("shared memory HAL\n");
+    MSG_RADIO("shared memory HAL\n");
 
     return LGW_HAL_SUCCESS;
 }
@@ -395,7 +411,7 @@ int lgw_start(void)
 
 int lgw_stop(void)
 {
-    printf("lgw_stop()\n");
+    MSG_RADIO("lgw_stop()\n");
     hal_run = false;
     sem_post(&tx_sem);
     pthread_join(thrid_fakegps, NULL);
@@ -422,15 +438,15 @@ rx_find_uplink_channel(uint16_t txer_bw_khz, uint32_t end_node_tx_freq_hz, uint8
 {
     int _rf, _if;
     unsigned int smallest_abs_diff = INT_MAX;
-    //printf("\n");
+    //MSG_RADIO("\n");
     /* did end-node transmit into one of our IF chains? */
     for (_rf = 0; _rf < 2; _rf++) {
-        //printf("_rf:%d n_ifs:%d\n", _rf, radio[_rf].n_ifs);
+        //MSG_RADIO("_rf:%d n_ifs:%d\n", _rf, radio[_rf].n_ifs);
         for (_if = 0; _if < radio[_rf].n_ifs; _if++) {
-            //printf("_rf:%d _if:%d valid:%d\n", _rf, _if, radio[_rf].valid[_if]);
+            //MSG_RADIO("_rf:%d _if:%d valid:%d\n", _rf, _if, radio[_rf].valid[_if]);
             if (radio[_rf].valid[_if]) {
                 int abs_diff_hz = abs(radio[_rf].rx_freqs[_if] - end_node_tx_freq_hz);
-                //printf("%d,%d diff:%u\n", _rf, _if, abs_diff_hz);
+                //MSG_RADIO("%d,%d diff:%u\n", _rf, _if, abs_diff_hz);
                 if (abs_diff_hz < smallest_abs_diff) {
                     uint16_t rx_bw_khz = 0;
                     if (radio[_rf].drs[_if] == DR_UNDEFINED)
@@ -449,7 +465,7 @@ rx_find_uplink_channel(uint16_t txer_bw_khz, uint32_t end_node_tx_freq_hz, uint8
                         smallest_abs_diff = abs_diff_hz;
                 }
             }
-            //printf("\n");
+            //MSG_RADIO("\n");
         }
     }
 
@@ -476,7 +492,7 @@ int lgw_receive(uint8_t max_pkt, struct lgw_pkt_rx_s *pkt_data)
     } else {
         double seconds_between_calls = _difftimespec(this_call, last_call);
         if (seconds_between_calls > 0.500) {
-            printf("lgw_receive() polling rate %fsecs\n",  seconds_between_calls);
+            MSG_RADIO("lgw_receive() polling rate %fsecs\n",  seconds_between_calls);
             exit(EXIT_FAILURE);
         }
     }
@@ -492,22 +508,22 @@ int lgw_receive(uint8_t max_pkt, struct lgw_pkt_rx_s *pkt_data)
         shm_uplink = &shared_memory1->uplink_packets[uplink_idx];
         struct lgw_pkt_rx_s *p = &pkt_data[nb_pkt_fetch];
 
-        printf("%dhz bw:%u ", shm_uplink->freq_hz, shm_uplink->bw_khz);
+        MSG_RADIO("%dhz bw:%u ", shm_uplink->freq_hz, shm_uplink->bw_khz);
 
         hz_freq_error = rx_find_uplink_channel(shm_uplink->bw_khz, shm_uplink->freq_hz, &p->rf_chain, &p->if_chain);
         hz_error_limit = (shm_uplink->bw_khz * 1000) / 4;
         if (hz_freq_error > hz_error_limit) {
-            printf("freq_hz out of range: err=%u, limit=%u\n", hz_freq_error, hz_error_limit);
+            MSG_RADIO("freq_hz out of range: err=%u, limit=%u\n", hz_freq_error, hz_error_limit);
             shm_uplink->has_packet = false; // mark this uplink packet as taken
             continue;
         }
         p->freq_hz = my_round(shm_uplink->freq_hz);
         if (shm_uplink->ppg != ppg) {
-            printf("tx-ppg:%02x, rx-ppg:%02x ", shm_uplink->ppg, ppg);
+            MSG_RADIO("tx-ppg:%02x, rx-ppg:%02x ", shm_uplink->ppg, ppg);
             shm_uplink->has_packet = false; // mark this uplink packet as taken
             continue;
         }
-        printf("freq ok (%d) rf:%d, if:%d ", hz_freq_error, p->rf_chain, p->if_chain);
+        MSG_RADIO("freq ok (%d) rf:%d, if:%d ", hz_freq_error, p->rf_chain, p->if_chain);
 
         switch (shm_uplink->bw_khz) {
             case 8: p->bandwidth = BW_7K8HZ; break;
@@ -520,16 +536,16 @@ int lgw_receive(uint8_t max_pkt, struct lgw_pkt_rx_s *pkt_data)
             default: p->bandwidth = BW_UNDEFINED; break;
         }
 
-        printf("lgw_receive: size:%d ", shm_uplink->size);
+        MSG_RADIO("lgw_receive: size:%d ", shm_uplink->size);
         //count_us_to_timespec(shm_uplink->tx_end_count_us, &result);
-        //printf("gw_start:%lu.%09lu\n", shared_memory1->_gw_start_ts.tv_sec, shared_memory1->_gw_start_ts.tv_nsec);
-        //printf("count_us:%u (result %lu.%09lu [45mdiff:%fms[0m) ", shm_uplink->tx_end_count_us, result.tv_sec, result.tv_nsec, _difftimespec(result, shm_uplink->dbg_txDone_time)*1000);
+        //MSG_RADIO("gw_start:%lu.%09lu\n", shared_memory1->_gw_start_ts.tv_sec, shared_memory1->_gw_start_ts.tv_nsec);
+        //MSG_RADIO("count_us:%u (result %lu.%09lu [45mdiff:%fms[0m) ", shm_uplink->tx_end_count_us, result.tv_sec, result.tv_nsec, _difftimespec(result, shm_uplink->dbg_txDone_time)*1000);
 
         p->status = STAT_CRC_OK; /* STAT_CRC_BAD, STAT_NO_CRC */
         p->size = shm_uplink->size;
         p->count_us = shm_uplink->tx_end_count_us;
         p->modulation = MOD_LORA;
-        printf("sf:%d ", shm_uplink->sf);
+        MSG_RADIO("sf:%d ", shm_uplink->sf);
         switch (shm_uplink->sf) {
             case 7: p->datarate = DR_LORA_SF7; break;
             case 8: p->datarate = DR_LORA_SF8; break;
@@ -556,7 +572,7 @@ int lgw_receive(uint8_t max_pkt, struct lgw_pkt_rx_s *pkt_data)
 
         memcpy(p->payload, shm_uplink->payload, p->size);
 
-        printf("\n");
+        MSG_RADIO("\n");
         shm_uplink->has_packet = false; // mark this uplink packet as taken
         if (++nb_pkt_fetch == max_pkt)
             break;
@@ -643,11 +659,6 @@ int32_t lgw_sf_getval(int x) {
     }
 }
 
-#if 0
-#define MSG_CYAN(...) printf("[46m" __VA_ARGS__ ); /* 46:bg-CYAN */ \
-                    printf("[0m") 
-#endif
-#define MSG_CYAN(...)                 
 
 
 uint32_t lgw_time_on_air_us(struct lgw_pkt_tx_s *packet)
@@ -666,10 +677,10 @@ uint32_t lgw_time_on_air_us(struct lgw_pkt_tx_s *packet)
     if (packet->modulation == MOD_LORA) {
         /* Get bandwidth */
         val = lgw_bw_getval(packet->bandwidth);
-        //printf("%d = lgw_bw_getval()\n", val);
+        //MSG_RADIO("%d = lgw_bw_getval()\n", val);
         if (val != -1) {
             BW = val / (float)1e6;
-            MSG_CYAN("BW:%f ", BW);
+            MSG_TOA("BW:%f ", BW);
         } else {
             fprintf(stderr, "ERROR: Cannot compute time on air for this packet, unsupported bandwidth (0x%02X)\n", packet->bandwidth);
             return 0;
@@ -679,7 +690,7 @@ uint32_t lgw_time_on_air_us(struct lgw_pkt_tx_s *packet)
         val = lgw_sf_getval(packet->datarate);
         if (val != -1) {
             SF = (uint8_t)val;
-            MSG_CYAN("SF:%u ", SF);
+            MSG_TOA("SF:%u ", SF);
         } else {
             fprintf(stderr, "ERROR: Cannot compute time on air for this packet, unsupported datarate (0x%02X)\n", packet->datarate);
             return 0;
@@ -687,7 +698,7 @@ uint32_t lgw_time_on_air_us(struct lgw_pkt_tx_s *packet)
 
         /* Duration of 1 symbol */
         Tsym = pow(2, SF) / BW;
-        //printf("Tsym:%f = %f / %f\n", Tsym, pow(2, SF), BW);
+        //MSG_RADIO("Tsym:%f = %f / %f\n", Tsym, pow(2, SF), BW);
 
         /* Duration of preamble */
         //Tpreamble = (8 + 4.25) * Tsym; /* 8 programmed symbols in preamble */
@@ -698,12 +709,12 @@ uint32_t lgw_time_on_air_us(struct lgw_pkt_tx_s *packet)
         H = packet->no_header ? 1 : 0; /* header is always enabled, except for beacons */
         DE = (SF >= 11) ? 1 : 0; /* Low datarate optimization enabled for SF11 and SF12 */
         uint8_t crcOn = packet->no_crc ? 0: 1;
-        MSG_CYAN("Tsym:%f Tpreamble:%f(%usymbs) H:%d(%d) DE:%d crc:%u ", Tsym, Tpreamble, packet->preamble, H, packet->no_header, DE, crcOn);
+        MSG_TOA("Tsym:%f Tpreamble:%f(%usymbs) H:%d(%d) DE:%d crc:%u ", Tsym, Tpreamble, packet->preamble, H, packet->no_header, DE, crcOn);
 
         payloadSymbNb = 8 + (ceil((double)(8*packet->size - 4*SF + 28 + 16*crcOn - 20*H) / (double)(4*(SF - 2*DE))) * (packet->coderate + 4)); /* Explicitely cast to double to keep precision of the division */
 
         Tpayload = payloadSymbNb * Tsym;
-        MSG_CYAN(" (%ubytes) Tpayload:%f payloadSymbNb :%u ", packet->size, Tpayload, payloadSymbNb);
+        MSG_TOA(" (%ubytes) Tpayload:%f payloadSymbNb :%u ", packet->size, Tpayload, payloadSymbNb);
 
         /* Duration of packet */
         Tpacket = Tpreamble + Tpayload;
@@ -742,7 +753,7 @@ parse_lgw_pkt_tx_s(struct lgw_pkt_tx_s* pkt_data)
             case BW_250KHZ: dl->bw_khz = 250; break;
             case BW_500KHZ: dl->bw_khz = 500; break;
             default:
-                dl->bw_khz = 0; printf("bw:%d\n", pkt_data->bandwidth); 
+                dl->bw_khz = 0; MSG_RADIO("bw:%d\n", pkt_data->bandwidth); 
                 pthread_mutex_unlock(&mx_tx);
                 return -1;
         }
@@ -755,7 +766,7 @@ parse_lgw_pkt_tx_s(struct lgw_pkt_tx_s* pkt_data)
             case DR_LORA_SF11: dl->sf = 11; break;
             case DR_LORA_SF12: dl->sf = 12; break;
             default:
-                dl->sf = 0; printf("sf:%d\n", pkt_data->datarate); 
+                dl->sf = 0; MSG_RADIO("sf:%d\n", pkt_data->datarate); 
                 pthread_mutex_unlock(&mx_tx);
                 return -1;
         }
@@ -766,7 +777,7 @@ parse_lgw_pkt_tx_s(struct lgw_pkt_tx_s* pkt_data)
             case CR_LORA_4_7: dl->cr = 3; break;
             case CR_LORA_4_8: dl->cr = 4; break;
             default:
-                dl->cr = 0; printf("cr:%d\n", pkt_data->coderate);
+                dl->cr = 0; MSG_RADIO("cr:%d\n", pkt_data->coderate);
                 pthread_mutex_unlock(&mx_tx);
                 return -1;
         }
@@ -775,17 +786,17 @@ parse_lgw_pkt_tx_s(struct lgw_pkt_tx_s* pkt_data)
             pkt_data->preamble = STD_LORA_PREAMBLE;
         } else if (pkt_data->preamble < MIN_LORA_PREAMBLE) { /* enforce minimum preamble size */
             pkt_data->preamble = MIN_LORA_PREAMBLE;
-            printf("Note: preamble length adjusted to respect minimum LoRa preamble size\n");
+            MSG_RADIO("Note: preamble length adjusted to respect minimum LoRa preamble size\n");
         }
 
         toa_us = lgw_time_on_air_us(pkt_data);
-        //printf("toa_us:%u\n", toa_us);
+        //MSG_RADIO("toa_us:%u\n", toa_us);
 
         symbol_period_seconds = (1 << dl->sf) / (float)(dl->bw_khz * 1000);
-        //printf("symbol_period_seconds:%f\n", symbol_period_seconds);
+        //MSG_RADIO("symbol_period_seconds:%f\n", symbol_period_seconds);
         symbol_period_us = symbol_period_seconds * 1000000;
     } else {
-        printf("todo tx-modulation\n");
+        MSG_RADIO("todo tx-modulation\n");
         pthread_mutex_unlock(&mx_tx);
         return -1;
     }
@@ -796,7 +807,7 @@ parse_lgw_pkt_tx_s(struct lgw_pkt_tx_s* pkt_data)
     shared_memory1->downlink.sx1301_cnt.tx_done = shared_memory1->downlink.sx1301_cnt.preamble_start + toa_us;
 
     if (pkt_data->freq_hz < RF_FREQ_LOW_LIMIT) {
-        printf("parse_lgw_pkt_tx_s() bad freq %u\n", pkt_data->freq_hz);
+        MSG_RADIO("parse_lgw_pkt_tx_s() bad freq %u\n", pkt_data->freq_hz);
         pthread_mutex_unlock(&mx_tx);
         return -1;
     }
@@ -823,7 +834,7 @@ void print_now()
 
     if (clock_gettime (CLOCK_REALTIME, &now) == -1)
         perror ("clock_gettime");
-    printf("raw-now:%lu, %lu\n", now.tv_sec, now.tv_nsec);
+    MSG_RADIO("raw-now:%lu, %lu\n", now.tv_sec, now.tv_nsec);
 }
 
 
@@ -833,16 +844,16 @@ int lgw_send(struct lgw_pkt_tx_s pkt_data)
     uint32_t now_cnt;
 
     if (tx_busy) {
-        printf("lgw_send() already transmitting\n");
+        MSG_RADIO("lgw_send() [31malready transmitting\n");
         return LGW_HAL_ERROR;
     }
 
     switch (pkt_data.tx_mode) {
         case TIMESTAMPED:
             now_cnt = get_current_sx1301_cnt();
-            printf("lgw_send() TIMESTAMPED at %08x (%dus from now)\n", pkt_data.count_us, pkt_data.count_us - now_cnt);
+            MSG_RADIO("lgw_send() TIMESTAMPED at %08x (%dus from now)\n", pkt_data.count_us, pkt_data.count_us - now_cnt);
             if (pkt_data.count_us < now_cnt) {
-                printf("sending in past\n");
+                MSG_RADIO("sending in past\n");
                 return LGW_HAL_ERROR;
             }
             dl->sx1301_cnt.preamble_start = pkt_data.count_us;
@@ -858,7 +869,7 @@ int lgw_send(struct lgw_pkt_tx_s pkt_data)
             /* GPS trigger packet overrides any pending timestamped packet */
             lgw_get_trigcnt(&now_cnt);
             dl->sx1301_cnt.preamble_start = now_cnt + 1000000;
-            printf("lgw_send() ON_GPS at %08x, %uhz\n", dl->sx1301_cnt.preamble_start, pkt_data.freq_hz);
+            MSG_RADIO("lgw_send() ON_GPS at %08x, %uhz\n", dl->sx1301_cnt.preamble_start, pkt_data.freq_hz);
             if (parse_lgw_pkt_tx_s(&pkt_data) < 0) {
                 printf("[31mparse_lgw_pkt_tx_s() failed[0m\n");
                 return LGW_HAL_ERROR;
@@ -866,7 +877,7 @@ int lgw_send(struct lgw_pkt_tx_s pkt_data)
             sem_post(&tx_sem);
             break;
         case IMMEDIATE:
-            printf("lgw_send() IMMEDIATE\n");
+            MSG_RADIO("lgw_send() IMMEDIATE\n");
             dl->sx1301_cnt.preamble_start = get_current_sx1301_cnt();
 
             if (parse_lgw_pkt_tx_s(&pkt_data) < 0)

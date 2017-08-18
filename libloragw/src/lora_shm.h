@@ -43,6 +43,7 @@ typedef struct {
     uint32_t tx_cnt;
     int8_t tx_dBm;
 
+    uint8_t num_end_nodes_rxing;
 } downlink_t;
 
 struct lora_shm_struct {
