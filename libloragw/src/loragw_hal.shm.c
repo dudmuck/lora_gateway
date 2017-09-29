@@ -882,9 +882,9 @@ int lgw_send(struct lgw_pkt_tx_s pkt_data)
 
             if (parse_lgw_pkt_tx_s(&pkt_data) < 0)
                 return LGW_HAL_ERROR;
-            pthread_mutex_lock(&mx_tx);
-            _tx_to_shared("IMMEDIATE");
-            pthread_mutex_unlock(&mx_tx);
+
+            dl->sx1301_cnt.preamble_start += 200;   // send in 200us
+            sem_post(&tx_sem);
             break;
     }
 
