@@ -400,6 +400,8 @@ const char* lgw_version_info(void);
 */
 uint32_t lgw_time_on_air(struct lgw_pkt_tx_s *packet);
 
+extern bool shmCreate;  // for shared memory, false=open as slave
+
 #endif
 
 /* --- EOF ------------------------------------------------------------------ */

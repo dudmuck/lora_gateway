@@ -62,7 +62,6 @@ uint8_t ppg;
 
 void thread_fakegps(void);  // from loragw_gps.shm.c
 
-static uint32_t count_us_overflows; // overflows every 2^32 microseconds
 static uint32_t prev_trig_cnt;
 static bool first_lgw_receive;
 
@@ -338,14 +337,21 @@ uint32_t my_round(uint32_t hz)
     return ri * 10000;
 }
 
+uint8_t myUplinkCnts[N_UPLINK_PACKETS];
+bool shmCreate = true;
+
 int shared_memory_init()
 {
     int ret;
+    int sflags = 0666;
 
     if (shared_memory1 != NULL)
         return LGW_HAL_SUCCESS;
 
-    shared_memory1_id = shmget((key_t)SHM_KEY, sizeof(struct lora_shm_struct), 0666 | IPC_CREAT);
+    if (shmCreate)
+        sflags |= IPC_CREAT;
+
+    shared_memory1_id = shmget((key_t)SHM_KEY, sizeof(struct lora_shm_struct), sflags);
     if (shared_memory1_id < 0) {
         perror("shmget");
         return LGW_HAL_ERROR;
@@ -360,26 +366,33 @@ int shared_memory_init()
 
     shared_memory1 = (struct lora_shm_struct *)shared_memory1_pointer;
 
-    count_us_overflows = 0;
-    if (clock_gettime (CLOCK_REALTIME, &shared_memory1->gw_start_ts) == -1) {
-        perror ("clock_gettime");
-        return LGW_HAL_ERROR;
-    }
-    //shared_memory1->gw_start_ts.tv_sec -= 4244; // cause early rollover
-    MSG_RADIO("gw_start_ts: %lu.%lu\n",
-        shared_memory1->gw_start_ts.tv_sec,
-        shared_memory1->gw_start_ts.tv_nsec
-    );
     prev_trig_cnt = 0;
     first_lgw_receive = true;
-    /////////////////////////////////////////////////////////
     sem_init(&tx_sem, 0, -1);
-    shared_memory1->size = sizeof(struct lora_shm_struct);
-    shared_memory1->downlink.tx_cnt = 0;
-    /* clear any stale packets */
+
+    if (shmCreate) {
+        if (clock_gettime (CLOCK_REALTIME, &shared_memory1->gw_start_ts) == -1) {
+            perror ("clock_gettime");
+            return LGW_HAL_ERROR;
+        }
+        //shared_memory1->gw_start_ts.tv_sec -= 4244; // cause early rollover
+        MSG_RADIO("gw_start_ts: %lu.%lu\n",
+            shared_memory1->gw_start_ts.tv_sec,
+            shared_memory1->gw_start_ts.tv_nsec
+        );
+        /////////////////////////////////////////////////////////
+        shared_memory1->size = sizeof(struct lora_shm_struct);
+        shared_memory1->downlink.tx_cnt = 0;
+        /* clear any stale packets */
+        /*for (ret = 0; ret < N_UPLINK_PACKETS; ret++)
+            shared_memory1->uplink_packets[ret].has_packet = false;*/
+        /////////////////////////////////////////////////////////
+        shared_memory1->ULnext = 0;
+    }
+
     for (ret = 0; ret < N_UPLINK_PACKETS; ret++)
-        shared_memory1->uplink_packets[ret].has_packet = false;
-    /////////////////////////////////////////////////////////
+        myUplinkCnts[ret] = shared_memory1->uplink_packets[ret].uplinkCnt;
+ 
     hal_run = true;
     ret = pthread_create(&thrid_fakegps, NULL, (void * (*)(void *))thread_fakegps, NULL);
     if (ret != 0) {
@@ -503,8 +516,9 @@ int lgw_receive(uint8_t max_pkt, struct lgw_pkt_rx_s *pkt_data)
         uint32_t hz_error_limit;
         struct uplink_struct* shm_uplink;
         unsigned int hz_freq_error;
-        if (!shared_memory1->uplink_packets[uplink_idx].has_packet)
+        if (myUplinkCnts[uplink_idx] == shared_memory1->uplink_packets[uplink_idx].uplinkCnt)
             continue;
+
         shm_uplink = &shared_memory1->uplink_packets[uplink_idx];
         struct lgw_pkt_rx_s *p = &pkt_data[nb_pkt_fetch];
 
@@ -514,13 +528,15 @@ int lgw_receive(uint8_t max_pkt, struct lgw_pkt_rx_s *pkt_data)
         hz_error_limit = (shm_uplink->bw_khz * 1000) / 4;
         if (hz_freq_error > hz_error_limit) {
             MSG_RADIO("freq_hz out of range: err=%u, limit=%u\n", hz_freq_error, hz_error_limit);
-            shm_uplink->has_packet = false; // mark this uplink packet as taken
+            // mark this uplink packet as taken
+            myUplinkCnts[uplink_idx] = shared_memory1->uplink_packets[uplink_idx].uplinkCnt;
             continue;
         }
         p->freq_hz = my_round(shm_uplink->freq_hz);
         if (shm_uplink->ppg != ppg) {
             MSG_RADIO("tx-ppg:%02x, rx-ppg:%02x ", shm_uplink->ppg, ppg);
-            shm_uplink->has_packet = false; // mark this uplink packet as taken
+            // mark this uplink packet as taken
+            myUplinkCnts[uplink_idx] = shared_memory1->uplink_packets[uplink_idx].uplinkCnt;
             continue;
         }
         MSG_RADIO("freq ok (%d) rf:%d, if:%d ", hz_freq_error, p->rf_chain, p->if_chain);
@@ -573,7 +589,8 @@ int lgw_receive(uint8_t max_pkt, struct lgw_pkt_rx_s *pkt_data)
         memcpy(p->payload, shm_uplink->payload, p->size);
 
         MSG_RADIO("\n");
-        shm_uplink->has_packet = false; // mark this uplink packet as taken
+        // mark this uplink packet as taken
+        myUplinkCnts[uplink_idx] = shared_memory1->uplink_packets[uplink_idx].uplinkCnt;
         if (++nb_pkt_fetch == max_pkt)
             break;
     } // ..for (uplink_idx..)
@@ -796,7 +813,7 @@ parse_lgw_pkt_tx_s(struct lgw_pkt_tx_s* pkt_data)
         //MSG_RADIO("symbol_period_seconds:%f\n", symbol_period_seconds);
         symbol_period_us = symbol_period_seconds * 1000000;
     } else {
-        MSG_RADIO("todo tx-modulation\n");
+        MSG_RADIO("\e[0mtodo tx-modulation not-LORA\n");
         pthread_mutex_unlock(&mx_tx);
         return -1;
     }

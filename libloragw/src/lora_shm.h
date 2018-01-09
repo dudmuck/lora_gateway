@@ -12,7 +12,8 @@ struct uplink_struct {
     uint8_t sf;
     uint8_t cr;
     int8_t dBm_tx_power;
-    bool has_packet;
+    //bool has_packet;
+    volatile uint8_t uplinkCnt;
 
     //struct timespec dbg_txDone_time;
 };
@@ -51,6 +52,7 @@ struct lora_shm_struct {
     struct timespec gw_start_ts;
 
     struct uplink_struct uplink_packets[N_UPLINK_PACKETS];
+    uint8_t ULnext;
 
     downlink_t downlink;
 };
